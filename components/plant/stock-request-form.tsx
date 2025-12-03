@@ -10,12 +10,15 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { useAuth } from "@/lib/auth"
 
 interface StockRequestFormProps {
   onSubmit: (data: any) => void
 }
 
 export function PlantStockRequestForm({ onSubmit }: StockRequestFormProps) {
+  const { user } = useAuth()
+  const [loading, setLoading] = useState(false)
   const [material, setMaterial] = useState("coking_coal")
   const [grade, setGrade] = useState("")
   const [quantity, setQuantity] = useState("")
@@ -23,18 +26,55 @@ export function PlantStockRequestForm({ onSubmit }: StockRequestFormProps) {
   const [priority, setPriority] = useState("Normal")
   const [note, setNote] = useState("")
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    onSubmit({
-      material,
-      grade,
-      quantity: Number.parseInt(quantity),
-      required_by_date: requiredByDate,
-      priority,
-      note,
-      status: "Pending",
-      created_at: new Date().toISOString(),
-    })
+    setLoading(true)
+
+    try {
+      const plantsRes = await fetch(`/api/plants?code=${user?.plant_id || "BSP"}`)
+      const plantsData = await plantsRes.json()
+
+      if (!plantsData.data || plantsData.data.length === 0) {
+        throw new Error(`Plant not found: ${user?.plant_id}`)
+      }
+
+      const plantUuid = plantsData.data[0].id
+
+      const response = await fetch("/api/stock-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          plant_id: plantUuid, // Use UUID instead of code
+          material: material,
+          grade: grade,
+          quantity_t: Number.parseInt(quantity),
+          required_by_date: requiredByDate,
+          priority: priority,
+          note: note,
+          created_by: user?.id,
+        }),
+      })
+
+      if (!response.ok) throw new Error("Failed to create request")
+
+      const result = await response.json()
+      console.log("[v0] Stock request created:", result)
+
+      onSubmit(result.data)
+
+      // Reset form
+      setMaterial("coking_coal")
+      setGrade("")
+      setQuantity("")
+      setRequiredByDate("")
+      setPriority("Normal")
+      setNote("")
+    } catch (error) {
+      console.error("[v0] Error creating stock request:", error)
+      alert("Failed to create stock request. Please try again.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -58,7 +98,6 @@ export function PlantStockRequestForm({ onSubmit }: StockRequestFormProps) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="coking_coal">Coking Coal</SelectItem>
-                    <SelectItem value="limestone">Limestone</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -70,18 +109,9 @@ export function PlantStockRequestForm({ onSubmit }: StockRequestFormProps) {
                     <SelectValue placeholder="Select grade" />
                   </SelectTrigger>
                   <SelectContent>
-                    {material === "coking_coal" ? (
-                      <>
-                        <SelectItem value="prime_hard">Prime Hard Coking</SelectItem>
-                        <SelectItem value="semi_soft">Semi-Soft Coking</SelectItem>
-                        <SelectItem value="medium">Medium Coking</SelectItem>
-                      </>
-                    ) : (
-                      <>
-                        <SelectItem value="flux_grade">Flux Grade</SelectItem>
-                        <SelectItem value="sinter_feed">Sinter Feed</SelectItem>
-                      </>
-                    )}
+                    <SelectItem value="prime_hard">Prime Hard Coking</SelectItem>
+                    <SelectItem value="semi_soft">Semi-Soft Coking</SelectItem>
+                    <SelectItem value="medium">Medium Coking</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -165,8 +195,12 @@ export function PlantStockRequestForm({ onSubmit }: StockRequestFormProps) {
             </div>
           </div>
 
-          <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-white font-semibold">
-            Submit Request
+          <Button
+            type="submit"
+            className="w-full bg-accent hover:bg-accent/90 text-white font-semibold"
+            disabled={loading}
+          >
+            {loading ? "Submitting..." : "Submit Request"}
           </Button>
         </form>
       </CardContent>

@@ -1,36 +1,87 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Badge } from "@/components/ui/badge"
 
 interface VesselPlanningFormProps {
   onSubmit: (data: any) => void
 }
 
 export function VesselPlanningForm({ onSubmit }: VesselPlanningFormProps) {
+  const [loading, setLoading] = useState(false)
+  const [approvedRequests, setApprovedRequests] = useState<any[]>([])
+  const [selectedRequests, setSelectedRequests] = useState<string[]>([])
   const [vessel, setVessel] = useState("")
   const [supplier, setSupplier] = useState("")
+  const [dischargePort, setDischargePort] = useState("")
   const [material, setMaterial] = useState("")
   const [loadDate, setLoadDate] = useState("")
+  const [laycanEnd, setLaycanEnd] = useState("")
   const [quantity, setQuantity] = useState("")
-  const [plants, setPlants] = useState<string[]>([])
+  const [estimatedCost, setEstimatedCost] = useState("")
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    fetchApprovedRequests()
+  }, [])
+
+  const fetchApprovedRequests = async () => {
+    try {
+      const response = await fetch("/api/stock-requests?status=approved")
+      const data = await response.json()
+      setApprovedRequests(data.data || [])
+    } catch (error) {
+      console.error("[v0] Error fetching approved requests:", error)
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    onSubmit({
-      vessel,
-      supplier,
-      material,
-      load_date: loadDate,
-      quantity: Number.parseInt(quantity),
-      assigned_plants: plants,
-    })
+    setLoading(true)
+
+    try {
+      const response = await fetch("/api/schedules-full", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vessel_name: vessel,
+          supplier_port_id: supplier,
+          discharge_port_id: dischargePort,
+          material_type: material,
+          quantity: Number.parseInt(quantity),
+          laycan_start: loadDate,
+          laycan_end: laycanEnd,
+          estimated_cost: Number.parseFloat(estimatedCost),
+          status: "draft",
+          linked_request_ids: selectedRequests,
+        }),
+      })
+
+      if (!response.ok) throw new Error("Failed to create schedule")
+
+      const result = await response.json()
+      console.log("[v0] Schedule created:", result)
+
+      alert("Schedule created successfully! It has been sent to Logistics for optimization.")
+      onSubmit(result.data)
+    } catch (error) {
+      console.error("[v0] Error creating schedule:", error)
+      alert("Failed to create schedule. Please try again.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const toggleRequestSelection = (requestId: string) => {
+    setSelectedRequests((prev) =>
+      prev.includes(requestId) ? prev.filter((id) => id !== requestId) : [...prev, requestId],
+    )
   }
 
   return (
@@ -41,6 +92,39 @@ export function VesselPlanningForm({ onSubmit }: VesselPlanningFormProps) {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
+          {approvedRequests.length > 0 && (
+            <div className="space-y-3">
+              <Label>Link to Plant Requests (Optional)</Label>
+              <div className="p-4 bg-secondary/20 rounded-lg space-y-2 max-h-64 overflow-y-auto">
+                {approvedRequests.map((request) => (
+                  <div
+                    key={request.id}
+                    className="flex items-center gap-3 p-3 bg-white rounded border hover:border-primary/50 transition"
+                  >
+                    <Checkbox
+                      checked={selectedRequests.includes(request.id)}
+                      onCheckedChange={() => toggleRequestSelection(request.id)}
+                    />
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">
+                        {request.plant_id} - {request.material_type?.replace("_", " ")}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {request.quantity_requested?.toLocaleString()} t • Required by {request.required_by_date}
+                      </p>
+                    </div>
+                    <Badge variant="secondary">{request.priority}</Badge>
+                  </div>
+                ))}
+              </div>
+              {selectedRequests.length > 0 && (
+                <p className="text-sm text-green-600 font-medium">
+                  ✓ {selectedRequests.length} request(s) will be linked to this schedule
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Request Context */}
           <div className="space-y-4 p-4 bg-secondary/10 rounded-lg border border-primary/10">
             <h3 className="font-semibold text-primary">Vessel Information</h3>
@@ -142,8 +226,12 @@ export function VesselPlanningForm({ onSubmit }: VesselPlanningFormProps) {
             </div>
           </div>
 
-          <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-white font-semibold">
-            Create Provisional Schedule
+          <Button
+            type="submit"
+            className="w-full bg-accent hover:bg-accent/90 text-white font-semibold"
+            disabled={loading}
+          >
+            {loading ? "Creating Schedule..." : "Create Provisional Schedule"}
           </Button>
         </form>
       </CardContent>

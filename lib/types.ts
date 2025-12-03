@@ -1,6 +1,7 @@
 // Domain types for SAIL Logistics Optimizer
 
 export interface Plant {
+  id?: string
   code: string
   name: string
   state: string
@@ -266,4 +267,105 @@ export interface OptimizationJob {
   created_at: string
   completed_at?: string
   result?: OptimizationResult
+}
+
+export interface PortCandidate {
+  port_id: string
+  port_name: string
+  distance_nm: number
+  transit_days: number
+  total_cost_inr: number
+  cost_breakdown: {
+    ocean_freight_inr: number
+    port_charges_inr: number
+    rail_freight_inr: number
+    demurrage_inr: number
+  }
+  risks: {
+    weather: "Low" | "Medium" | "High"
+    congestion: "Low" | "Medium" | "High"
+    depth_draft: "Low" | "Medium" | "High"
+  }
+  status: "Optimised" | "Feasible" | "Non-Feasible"
+  reason?: string
+  optimization_notes?: string
+}
+
+export interface ImportSchedule {
+  id: string
+  schedule_id: string
+  material: "coking_coal" | "limestone"
+  quantity_t: number
+  vessel_id: string
+  vessel_name: string
+  load_port: string
+  load_port_name: string
+  sailing_date: string
+  required_by_date: string
+  target_plant: string
+  target_plant_name: string
+  status: "Pending Port Selection" | "Port Selected" | "In Transit" | "Completed"
+  selected_port?: string
+  selected_port_name?: string
+  created_at: string
+  from_procurement_user: string
+}
+
+export interface TransportPlan {
+  id: string
+  schedule_id: string
+  segments: TransportSegment[]
+  total_cost_inr: number
+  total_transit_days: number
+  created_at: string
+  status: "Active" | "Completed" | "Delayed"
+}
+
+export interface TransportSegment {
+  segment_type:
+    | "loading"
+    | "sea_voyage"
+    | "anchorage"
+    | "berthing"
+    | "discharge"
+    | "yard_storage"
+    | "rail"
+    | "plant_receipt"
+  location: string
+  location_name: string
+  planned_start: string
+  planned_end: string
+  actual_start?: string
+  actual_end?: string
+  status: "Planned" | "In Progress" | "Completed" | "Delayed"
+  eta: string
+  delay_days: number
+  cost_impact_inr: number
+  notes?: string
+}
+
+export interface WhatIfScenario {
+  id: string
+  schedule_id: string
+  name: string
+  scenario_type: "weather_delay" | "port_congestion" | "rake_shortage" | "alternate_port"
+  parameters: {
+    weather_delay_days?: number
+    port_congestion_days?: number
+    rake_reduction_pct?: number
+    alternate_port_id?: string
+  }
+  results: {
+    new_eta: string
+    revised_cost_inr: number
+    cost_change_inr: number
+    transit_change_days: number
+    risks: {
+      weather: "Low" | "Medium" | "High"
+      congestion: "Low" | "Medium" | "High"
+      depth_draft: "Low" | "Medium" | "High"
+    }
+  }
+  created_at: string
+  notes?: string
 }

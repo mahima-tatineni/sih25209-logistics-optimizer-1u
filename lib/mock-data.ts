@@ -15,6 +15,7 @@ import type {
 
 export const PLANTS: Plant[] = [
   {
+    id: "550e8400-e29b-41d4-a716-446655440001",
     code: "BSP",
     name: "Bhilai Steel Plant",
     state: "Chhattisgarh",
@@ -34,6 +35,7 @@ export const PLANTS: Plant[] = [
     ],
   },
   {
+    id: "550e8400-e29b-41d4-a716-446655440002",
     code: "RSP",
     name: "Rourkela Steel Plant",
     state: "Odisha",
@@ -53,6 +55,7 @@ export const PLANTS: Plant[] = [
     ],
   },
   {
+    id: "550e8400-e29b-41d4-a716-446655440003",
     code: "BSL",
     name: "Bokaro Steel Plant",
     state: "Jharkhand",
@@ -72,6 +75,7 @@ export const PLANTS: Plant[] = [
     ],
   },
   {
+    id: "550e8400-e29b-41d4-a716-446655440004",
     code: "DSP",
     name: "Durgapur Steel Plant",
     state: "West Bengal",
@@ -90,6 +94,7 @@ export const PLANTS: Plant[] = [
     ],
   },
   {
+    id: "550e8400-e29b-41d4-a716-446655440005",
     code: "ISP",
     name: "IISCO Steel Plant",
     state: "West Bengal",

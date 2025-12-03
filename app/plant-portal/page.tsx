@@ -7,12 +7,14 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/lib/auth"
 import { useRouter } from "next/navigation"
-import { Factory, Package, AlertTriangle, Plus, TrendingUp } from "lucide-react"
+import { Package, AlertTriangle, Plus, TrendingUp } from "lucide-react"
 import Image from "next/image"
 import { PlantStockUpdatesForm } from "@/components/plant/stock-updates-form"
 import { PlantStockRequestForm } from "@/components/plant/stock-request-form"
 import { PlantRequestsList } from "@/components/plant/requests-list"
 import { PlantScheduleTracking } from "@/components/plant/schedule-tracking"
+import { PortalNav } from "@/components/portal-nav"
+import { RoleAlerts } from "@/components/alerts/RoleAlerts"
 
 export default function PlantPortalPage() {
   const { user, isAuthenticated } = useAuth()
@@ -37,35 +39,14 @@ export default function PlantPortalPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary/5 to-white">
-      <header className="bg-gradient-to-r from-primary to-[#224EA9] text-white shadow-lg sticky top-0 z-40">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Factory className="h-8 w-8" />
-              <div>
-                <h1 className="text-2xl font-bold">{plantName} Portal</h1>
-                <p className="text-sm text-white/80">{plantState}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" className="text-white hover:bg-white/20" onClick={() => router.push("/")}>
-                Home
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  localStorage.removeItem("sail_user")
-                  router.push("/login")
-                }}
-              >
-                Logout
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <PortalNav title={plantName} portal="plant" />
 
       <div className="container mx-auto px-4 py-8">
+        {/* Add role-specific alerts at the top */}
+        <div className="mb-6">
+          <RoleAlerts role="plant" plantId={user?.plant_id} userId={user?.id} />
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <Card className="lg:col-span-2 border-2 border-primary/20">
             <CardHeader>
@@ -253,7 +234,8 @@ export default function PlantPortalPage() {
                 if (data.event_type === "receipt") {
                   setCurrentStock((prev) => ({
                     ...prev,
-                    [data.material]: {
+                    [data.material as keyof typeof prev]: {
+                      ...prev[data.material as keyof typeof prev],
                       quantity: prev[data.material as keyof typeof prev].quantity + data.quantity,
                       days_cover: 28, // Recalculate in real implementation
                     },

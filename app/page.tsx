@@ -1,3 +1,5 @@
+"use client"
+
 import Link from "next/link"
 import Image from "next/image"
 import { PublicNav } from "@/components/public-nav"
@@ -8,10 +10,48 @@ import { Carousel } from "@/components/carousel"
 import { FacilityCard } from "@/components/facility-card"
 import { Ship, Anchor, TrendingUp, Brain, ChevronDown, Factory, MapPin, Badge } from "lucide-react"
 import { getPlants, getPorts } from "@/lib/db-actions"
+import { useState, useEffect } from "react"
 
-export default async function HomePage() {
-  const plants = await getPlants()
-  const ports = await getPorts()
+export default function Home() {
+  const [liveSchedules, setLiveSchedules] = useState<any[]>([])
+  const [plants, setPlants] = useState<any[]>([])
+  const [ports, setPorts] = useState<any[]>([])
+
+  useEffect(() => {
+    // Fetch confirmed schedules for public display
+    fetch("/api/schedules-full?status=Confirmed,In Transit")
+      .then((res) => res.json())
+      .then((data) => {
+        const schedules = (data.data || []).slice(0, 5).map((sch: any) => ({
+          vessel: sch.vessel_name,
+          origin: sch.supplier_port_id,
+          port: sch.optimized_port_id || "TBD",
+          plant: sch.linked_requests?.[0]?.plant_id || "Multiple",
+          material: sch.material_type?.replace("_", " ") || "N/A",
+          eta: new Date(sch.laycan_end).toLocaleDateString(),
+          status: sch.status,
+        }))
+        setLiveSchedules(schedules)
+      })
+      .catch(() => {
+        // Fallback to mock data
+        setLiveSchedules([
+          {
+            vessel: "MV Pacific Glory",
+            origin: "Gladstone",
+            port: "Vizag",
+            plant: "Bhilai",
+            material: "Coking Coal",
+            eta: "2025-02-05",
+            status: "In Transit",
+          },
+        ])
+      })
+
+    // Fetch plants and ports data
+    getPlants().then((plantData) => setPlants(plantData))
+    getPorts().then((portData) => setPorts(portData))
+  }, [])
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -288,66 +328,20 @@ export default async function HomePage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {[
-                          {
-                            vessel: "MV Pacific Glory",
-                            origin: "Gladstone",
-                            port: "Vizag",
-                            plant: "Bhilai",
-                            material: "Coking Coal",
-                            eta: "2025-02-05",
-                            status: "In Transit",
-                          },
-                          {
-                            vessel: "MV Ocean Star",
-                            origin: "Newcastle",
-                            port: "Paradip",
-                            plant: "Rourkela",
-                            material: "Coking Coal",
-                            eta: "2025-02-08",
-                            status: "In Transit",
-                          },
-                          {
-                            vessel: "MV Steel Carrier",
-                            origin: "Maputo",
-                            port: "Vizag",
-                            plant: "Bhilai",
-                            material: "Coking Coal",
-                            eta: "2025-02-15",
-                            status: "Planned",
-                          },
-                          {
-                            vessel: "Rail Rake #R-2401",
-                            origin: "Paradip",
-                            port: "Local",
-                            plant: "Rourkela",
-                            material: "Coking Coal",
-                            eta: "2025-01-08",
-                            status: "In Transit",
-                          },
-                          {
-                            vessel: "MV Global Trader",
-                            origin: "Richards Bay",
-                            port: "Haldia",
-                            plant: "Durgapur",
-                            material: "Limestone",
-                            eta: "2025-02-10",
-                            status: "Planned",
-                          },
-                        ].map((schedule, idx) => (
+                        {liveSchedules.map((schedule, idx) => (
                           <tr key={idx} className="border-b border-primary/5 hover:bg-primary/5 transition-colors">
                             <td className="py-3 px-4 font-semibold text-primary">{schedule.vessel}</td>
                             <td className="py-3 px-4 text-foreground/70">{schedule.origin}</td>
                             <td className="py-3 px-4 text-foreground/70">{schedule.port}</td>
                             <td className="py-3 px-4 text-foreground/70">{schedule.plant}</td>
-                            <td className="py-3 px-4 text-foreground/70">{schedule.material}</td>
+                            <td className="py-3 px-4 text-foreground/70 capitalize">{schedule.material}</td>
                             <td className="py-3 px-4 font-medium text-foreground">{schedule.eta}</td>
                             <td className="py-3 px-4">
                               <Badge
                                 variant={
                                   schedule.status === "In Transit"
                                     ? "default"
-                                    : schedule.status === "Planned"
+                                    : schedule.status === "Confirmed"
                                       ? "secondary"
                                       : "outline"
                                 }

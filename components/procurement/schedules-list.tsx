@@ -1,125 +1,259 @@
 "use client"
 
-import { Card, CardContent } from "@/components/ui/card"
+import { useState, useEffect } from "react"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { CheckCircle, Eye, ArrowRight } from "lucide-react"
+import { useRouter } from "next/navigation"
 
-interface SchedulesListProps {
-  status: "draft" | "confirmed"
-}
+export function SchedulesList() {
+  const router = useRouter()
+  const [schedules, setSchedules] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState("draft")
 
-export function SchedulesList({ status }: SchedulesListProps) {
-  const schedules =
-    status === "draft"
-      ? [
-          {
-            id: "SCH001",
-            vessel: "MV Pacific Glory",
-            origin: "Gladstone",
-            material: "Coking Coal",
-            qty: "75,000",
-            ports: ["Vizag"],
-            plants: ["BSP", "RSP"],
-            eta: "2025-02-05",
-            status: "Draft",
-            linkedRequests: ["SR001"],
-          },
-          {
-            id: "SCH002",
-            vessel: "MV Ocean Star",
-            origin: "Newcastle",
-            material: "Coking Coal",
-            qty: "72,000",
-            ports: ["Paradip"],
-            plants: ["RSP", "BSL"],
-            eta: "2025-02-08",
-            status: "Draft",
-            linkedRequests: ["SR003"],
-          },
-        ]
-      : [
-          {
-            id: "SCH003",
-            vessel: "MV Steel Carrier",
-            origin: "Maputo",
-            material: "Coking Coal",
-            qty: "68,000",
-            ports: ["Vizag", "Paradip"],
-            plants: ["BSP", "RSP", "BSL"],
-            eta: "2025-02-15",
-            status: "Confirmed",
-            linkedRequests: ["SR001", "SR002"],
-          },
-        ]
+  useEffect(() => {
+    fetchSchedules()
+  }, [])
+
+  const fetchSchedules = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch("/api/schedules-full")
+      const data = await response.json()
+      setSchedules(data.data || [])
+    } catch (error) {
+      console.error("[v0] Failed to fetch schedules:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSendToLogistics = async (scheduleId: string) => {
+    try {
+      await fetch(`/api/schedules-full/${scheduleId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "pending_optimization" }),
+      })
+      fetchSchedules()
+    } catch (error) {
+      console.error("[v0] Failed to send schedule to logistics:", error)
+    }
+  }
+
+  const handleConfirmSchedule = async (scheduleId: string) => {
+    if (!confirm("Confirm this optimized schedule? This will notify all relevant teams.")) return
+
+    try {
+      await fetch(`/api/schedules-full/${scheduleId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "Confirmed", confirmed_by: "Procurement Admin" }),
+      })
+      fetchSchedules()
+      alert("Schedule confirmed successfully!")
+    } catch (error) {
+      console.error("[v0] Failed to confirm schedule:", error)
+      alert("Failed to confirm schedule")
+    }
+  }
+
+  const draftSchedules = schedules.filter((s) => s.status === "draft")
+  const pendingSchedules = schedules.filter((s) => s.status === "pending_optimization")
+  const optimizedSchedules = schedules.filter((s) => s.status === "optimized")
+  const confirmedSchedules = schedules.filter((s) => s.status === "Confirmed" || s.status === "In Transit")
+
+  const renderScheduleCard = (sch: any, showActions: "send" | "confirm" | "view") => (
+    <Card key={sch.id} className="border-2 border-primary/20">
+      <CardContent className="pt-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+          <div>
+            <p className="text-sm text-muted-foreground">Schedule ID</p>
+            <p className="font-bold text-primary">{sch.id.substring(0, 12)}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Vessel</p>
+            <p className="font-bold">{sch.vessel_name}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Material & Quantity</p>
+            <p className="font-bold">
+              {sch.material_type} · {sch.quantity?.toLocaleString()}t
+            </p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Laycan</p>
+            <p className="font-bold text-primary">
+              {new Date(sch.laycan_start).toLocaleDateString()} - {new Date(sch.laycan_end).toLocaleDateString()}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">Supplier Port</p>
+            <Badge variant="secondary">{sch.supplier_port_id}</Badge>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">Discharge Port</p>
+            {sch.optimized_port_id ? (
+              <Badge variant="default">{sch.optimized_port_id}</Badge>
+            ) : (
+              <span className="text-sm text-muted-foreground">Pending Selection</span>
+            )}
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">Linked Requests</p>
+            <div className="flex flex-wrap gap-1">
+              {sch.linked_requests?.map((req: any) => (
+                <Badge key={req.request_id} variant="outline">
+                  {req.plant_id}
+                </Badge>
+              )) || <span className="text-sm text-muted-foreground">None</span>}
+            </div>
+          </div>
+        </div>
+
+        {sch.cost_estimate_inr && (
+          <div className="mb-4 p-3 bg-secondary/30 rounded-lg">
+            <p className="text-xs text-muted-foreground">Total Estimated Cost</p>
+            <p className="text-lg font-bold text-primary">₹{sch.cost_estimate_inr?.toLocaleString()}</p>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between">
+          <Badge variant={sch.status === "Confirmed" ? "default" : "secondary"}>{sch.status}</Badge>
+          <div className="flex gap-2">
+            {showActions === "send" && (
+              <Button className="bg-accent hover:bg-accent/90" size="sm" onClick={() => handleSendToLogistics(sch.id)}>
+                Send to Logistics
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            )}
+            {showActions === "confirm" && (
+              <>
+                <Button variant="outline" size="sm">
+                  <Eye className="h-4 w-4 mr-2" />
+                  View Details
+                </Button>
+                <Button
+                  className="bg-green-600 hover:bg-green-700"
+                  size="sm"
+                  onClick={() => handleConfirmSchedule(sch.id)}
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Confirm Final
+                </Button>
+              </>
+            )}
+            {showActions === "view" && (
+              <Button variant="outline" size="sm">
+                <Eye className="h-4 w-4 mr-2" />
+                Track Progress
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading schedules...</p>
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
-    <div className="space-y-3">
-      {schedules.map((sch) => (
-        <Card key={sch.id} className="border-2 border-primary/20">
-          <CardContent className="pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Schedule ID</p>
-                <p className="font-bold text-primary">{sch.id}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Vessel</p>
-                <p className="font-bold">{sch.vessel}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Material</p>
-                <p className="font-bold">
-                  {sch.material} · {sch.qty}t
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">ETA</p>
-                <p className="font-bold text-primary">{sch.eta}</p>
-              </div>
-            </div>
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+      <TabsList className="grid w-full grid-cols-4 max-w-3xl bg-secondary/20">
+        <TabsTrigger value="draft">
+          Draft <Badge className="ml-2">{draftSchedules.length}</Badge>
+        </TabsTrigger>
+        <TabsTrigger value="pending">
+          Sent to Logistics <Badge className="ml-2">{pendingSchedules.length}</Badge>
+        </TabsTrigger>
+        <TabsTrigger value="optimized">
+          Optimized <Badge className="ml-2">{optimizedSchedules.length}</Badge>
+        </TabsTrigger>
+        <TabsTrigger value="confirmed">
+          Confirmed <Badge className="ml-2">{confirmedSchedules.length}</Badge>
+        </TabsTrigger>
+      </TabsList>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Discharge Ports</p>
-                <div className="flex flex-wrap gap-1">
-                  {sch.ports.map((port) => (
-                    <Badge key={port} variant="secondary">
-                      {port}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Destination Plants</p>
-                <div className="flex flex-wrap gap-1">
-                  {sch.plants.map((plant) => (
-                    <Badge key={plant} variant="outline">
-                      {plant}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Linked Requests</p>
-                <div className="flex flex-wrap gap-1">
-                  {sch.linkedRequests.map((req) => (
-                    <Badge key={req} variant="default">
-                      {req}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <Badge variant={status === "draft" ? "secondary" : "default"}>{sch.status}</Badge>
-              <Button variant="ghost" size="sm" className="text-accent">
-                {status === "draft" ? "Send to Logistics" : "View Details"}
-              </Button>
-            </div>
-          </CardContent>
+      <TabsContent value="draft" className="space-y-3">
+        <Card className="border-2 border-primary/20 bg-blue-50">
+          <CardHeader>
+            <CardTitle className="text-sm">Draft Schedules</CardTitle>
+            <CardDescription>Schedules created but not yet sent to Logistics for optimization</CardDescription>
+          </CardHeader>
         </Card>
-      ))}
-    </div>
+        {draftSchedules.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center text-muted-foreground">No draft schedules</CardContent>
+          </Card>
+        ) : (
+          draftSchedules.map((sch) => renderScheduleCard(sch, "send"))
+        )}
+      </TabsContent>
+
+      <TabsContent value="pending" className="space-y-3">
+        <Card className="border-2 border-primary/20 bg-amber-50">
+          <CardHeader>
+            <CardTitle className="text-sm">Sent to Logistics</CardTitle>
+            <CardDescription>Schedules awaiting port selection and route optimization</CardDescription>
+          </CardHeader>
+        </Card>
+        {pendingSchedules.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center text-muted-foreground">No pending schedules</CardContent>
+          </Card>
+        ) : (
+          pendingSchedules.map((sch) => renderScheduleCard(sch, "view"))
+        )}
+      </TabsContent>
+
+      <TabsContent value="optimized" className="space-y-3">
+        <Card className="border-2 border-primary/20 bg-green-50">
+          <CardHeader>
+            <CardTitle className="text-sm">Optimized by Logistics</CardTitle>
+            <CardDescription>
+              Schedules with finalized ports and routes - review and confirm to activate
+            </CardDescription>
+          </CardHeader>
+        </Card>
+        {optimizedSchedules.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center text-muted-foreground">No optimized schedules</CardContent>
+          </Card>
+        ) : (
+          optimizedSchedules.map((sch) => renderScheduleCard(sch, "confirm"))
+        )}
+      </TabsContent>
+
+      <TabsContent value="confirmed" className="space-y-3">
+        <Card className="border-2 border-primary/20 bg-primary/5">
+          <CardHeader>
+            <CardTitle className="text-sm">Confirmed Schedules</CardTitle>
+            <CardDescription>Active schedules - visible to Railway, Ports, and Public dashboard</CardDescription>
+          </CardHeader>
+        </Card>
+        {confirmedSchedules.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center text-muted-foreground">No confirmed schedules</CardContent>
+          </Card>
+        ) : (
+          confirmedSchedules.map((sch) => renderScheduleCard(sch, "view"))
+        )}
+      </TabsContent>
+    </Tabs>
   )
 }
