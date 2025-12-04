@@ -11,13 +11,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useAuth } from "@/lib/auth"
+import { useNotifications } from "@/lib/notifications"
 
 interface StockRequestFormProps {
+  plantId?: string
   onSubmit: (data: any) => void
 }
 
-export function PlantStockRequestForm({ onSubmit }: StockRequestFormProps) {
+export function PlantStockRequestForm({ plantId, onSubmit }: StockRequestFormProps) {
   const { user } = useAuth()
+  const { addNotification } = useNotifications()
   const [loading, setLoading] = useState(false)
   const [material, setMaterial] = useState("coking_coal")
   const [grade, setGrade] = useState("")
@@ -25,42 +28,47 @@ export function PlantStockRequestForm({ onSubmit }: StockRequestFormProps) {
   const [requiredByDate, setRequiredByDate] = useState("")
   const [priority, setPriority] = useState("Normal")
   const [note, setNote] = useState("")
+  const [currentDaysCover, setCurrentDaysCover] = useState(28)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
     try {
-      const plantsRes = await fetch(`/api/plants?code=${user?.plant_id || "BSP"}`)
-      const plantsData = await plantsRes.json()
-
-      if (!plantsData.data || plantsData.data.length === 0) {
-        throw new Error(`Plant not found: ${user?.plant_id}`)
-      }
-
-      const plantUuid = plantsData.data[0].id
-
-      const response = await fetch("/api/stock-requests", {
+      const effectivePlantId = plantId || user?.plant_id || "BSP"
+      
+      const response = await fetch(`/api/plant/${effectivePlantId}/requests`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          plant_id: plantUuid, // Use UUID instead of code
           material: material,
           grade: grade,
           quantity_t: Number.parseInt(quantity),
           required_by_date: requiredByDate,
+          current_days_cover: currentDaysCover,
           priority: priority,
           note: note,
-          created_by: user?.id,
+          created_by: user?.id || user?.email,
         }),
       })
 
-      if (!response.ok) throw new Error("Failed to create request")
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to create request")
+      }
 
       const result = await response.json()
       console.log("[v0] Stock request created:", result)
 
-      onSubmit(result.data)
+      // Show success notification
+      addNotification({
+        type: "success",
+        title: "Request Created",
+        message: `Stock request for ${Number.parseInt(quantity).toLocaleString()} tonnes of ${material.replace("_", " ")} created successfully!`,
+        duration: 5000,
+      })
+
+      onSubmit(result.request)
 
       // Reset form
       setMaterial("coking_coal")
@@ -71,7 +79,14 @@ export function PlantStockRequestForm({ onSubmit }: StockRequestFormProps) {
       setNote("")
     } catch (error) {
       console.error("[v0] Error creating stock request:", error)
-      alert("Failed to create stock request. Please try again.")
+      
+      // Show error notification
+      addNotification({
+        type: "error",
+        title: "Request Failed",
+        message: error instanceof Error ? error.message : "Failed to create stock request. Please try again.",
+        duration: 5000,
+      })
     } finally {
       setLoading(false)
     }
@@ -98,6 +113,7 @@ export function PlantStockRequestForm({ onSubmit }: StockRequestFormProps) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="coking_coal">Coking Coal</SelectItem>
+                    <SelectItem value="limestone">Limestone</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -1,21 +1,17 @@
 "use client"
 
-import { useNotifications } from "@/hooks/useNotifications"
-import { useStockAlerts } from "@/hooks/useRealtimeData"
-import { useEffect } from "react"
+import { useNotifications } from "@/lib/notifications"
+import { useAuth } from "@/lib/auth"
 import { AlertCircle, CheckCircle, Info, XCircle, X } from "lucide-react"
 
 export function NotificationCenter() {
   const { notifications, removeNotification } = useNotifications()
-  const { alerts } = useStockAlerts()
+  const { isAuthenticated } = useAuth()
 
-  useEffect(() => {
-    alerts.forEach((alert) => {
-      if (!notifications.some((n) => n.id === alert.id)) {
-        // Alert conversion to notification handled by parent
-      }
-    })
-  }, [alerts, notifications])
+  // Only show notifications when user is logged in
+  if (!isAuthenticated) {
+    return null
+  }
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -48,7 +44,7 @@ export function NotificationCenter() {
       {notifications.map((notification) => (
         <div
           key={notification.id}
-          className={`flex items-start gap-3 p-4 rounded-lg border ${getBgColor(notification.type)} animate-in slide-in-from-top-2 duration-300`}
+          className={`flex items-start gap-3 p-4 rounded-lg border shadow-lg ${getBgColor(notification.type)} animate-in slide-in-from-top-2 duration-300`}
         >
           <div className="flex-shrink-0">{getIcon(notification.type)}</div>
           <div className="flex-1 min-w-0">
@@ -61,27 +57,6 @@ export function NotificationCenter() {
           >
             <X className="w-5 h-5" />
           </button>
-        </div>
-      ))}
-
-      {alerts.map((alert) => (
-        <div
-          key={alert.id}
-          className={`flex items-start gap-3 p-4 rounded-lg border ${alert.type === "critical" ? "bg-red-50 border-red-200" : "bg-yellow-50 border-yellow-200"} animate-in slide-in-from-top-2 duration-300`}
-        >
-          <div className="flex-shrink-0">
-            {alert.type === "critical" ? (
-              <XCircle className="w-5 h-5 text-red-600" />
-            ) : (
-              <AlertCircle className="w-5 h-5 text-yellow-600" />
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-sm text-gray-900">
-              {alert.type === "critical" ? "Critical Alert" : "Low Stock Warning"}
-            </h3>
-            <p className="text-sm text-gray-700 mt-1">{alert.message}</p>
-          </div>
         </div>
       ))}
     </div>

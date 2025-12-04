@@ -193,29 +193,6 @@ export function RoleAlerts({ role, userId, plantId }: RoleAlertsProps) {
     )
   }
 
-  if (alerts.length === 0) {
-    return null
-  }
-
-  return (
-    <div className="space-y-3">
-      {alerts.map((alert) => (
-        <Card key={alert.id} className={`p-4 border-2 ${getBgColor(alert.type)} transition-all hover:shadow-md`}>
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 mt-0.5">{getIcon(alert.type)}</div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-2">
-                <h3 className={`font-semibold text-sm ${getTextColor(alert.type)}`}>{alert.title}</h3>
-                <Badge variant={alert.type === "critical" ? "destructive" : "secondary"} className="flex-shrink-0">
-                  {alert.type}
-                </Badge>
-              </div>
-              <p className={`text-sm mt-1 ${getTextColor(alert.type)}`}>{alert.message}</p>
-              {alert.details && <p className="text-xs text-gray-600 mt-2 italic">{alert.details}</p>}
-            </div>
-          </div>
-        </Card>
-      ))}
-    </div>
-  )
+  // Alerts disabled - return null to hide all warnings
+  return null
 }

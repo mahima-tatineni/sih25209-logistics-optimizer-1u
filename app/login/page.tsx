@@ -10,12 +10,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useAuth } from "@/lib/auth"
+import { useNotifications } from "@/lib/notifications"
 import { getDefaultPortalForRole } from "@/lib/role-routing"
 import { Anchor, AlertCircle } from "lucide-react"
 
 export default function LoginPage() {
   const router = useRouter()
   const { login, user } = useAuth()
+  const { addNotification } = useNotifications()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -29,8 +31,19 @@ export default function LoginPage() {
     const success = await login(email, password)
 
     if (success) {
-      const portal = getDefaultPortalForRole(user?.role || "Guest")
-      router.push(portal)
+      // Show success notification
+      addNotification({
+        type: "success",
+        title: "Login Successful",
+        message: `Welcome back, ${user?.name || email}!`,
+        duration: 3000,
+      })
+
+      // Wait a moment for user state to update
+      setTimeout(() => {
+        const portal = getDefaultPortalForRole(user?.role || "Guest", user || undefined)
+        router.push(portal)
+      }, 100)
     } else {
       setError("Invalid email or password")
     }

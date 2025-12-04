@@ -10,8 +10,54 @@ export const ROLE_PORTALS: Record<User["role"], string> = {
   Guest: "/",
 }
 
-export function getDefaultPortalForRole(role: User["role"]): string {
+export function getDefaultPortalForRole(role: User["role"], user?: User): string {
+  // For plant users, route to plant-specific page
+  if (role === "PlantAdmin" && user?.plant_id) {
+    return `/plant/${user.plant_id}`
+  }
+  
+  // For port users, route to port-specific page
+  if (role === "PortAdmin" && user?.port_id) {
+    return `/port/${user.port_id}`
+  }
+  
   return ROLE_PORTALS[role] || "/"
+}
+
+export function getHomeRouteForUser(user: User | null): string {
+  if (!user) return "/"
+  
+  // Plant users go to their specific plant page
+  if (user.role === "PlantAdmin" && user.plant_id) {
+    return `/plant/${user.plant_id}`
+  }
+  
+  // Port users go to their specific port page
+  if (user.role === "PortAdmin" && user.port_id) {
+    return `/port/${user.port_id}`
+  }
+  
+  // Procurement goes to dashboard
+  if (user.role === "ProcurementAdmin") {
+    return "/procurement"
+  }
+  
+  // Logistics goes to schedules
+  if (user.role === "LogisticsTeam") {
+    return "/logistics"
+  }
+  
+  // Railway goes to railway dashboard
+  if (user.role === "RailwayAdmin") {
+    return "/railway"
+  }
+  
+  // Admin goes to admin dashboard
+  if (user.role === "SystemAdmin") {
+    return "/admin"
+  }
+  
+  return "/"
 }
 
 export function canAccessPortal(userRole: User["role"], portalPath: string): boolean {

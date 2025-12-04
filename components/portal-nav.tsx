@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth"
+import { getHomeRouteForUser } from "@/lib/role-routing"
 import { LogOut, Home } from "lucide-react"
 
 interface PortalNavProps {
@@ -12,7 +13,7 @@ interface PortalNavProps {
 }
 
 export function PortalNav({ title, portal }: PortalNavProps) {
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
   const router = useRouter()
 
   const portalLinks: Record<string, Array<{ label: string; href: string }>> = {
@@ -41,15 +42,21 @@ export function PortalNav({ title, portal }: PortalNavProps) {
     router.push("/")
   }
 
+  const handleHomeClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    const homeRoute = getHomeRouteForUser(user)
+    router.push(homeRoute)
+  }
+
   return (
     <nav className="sticky top-0 z-40 bg-gradient-to-r from-primary to-[#224EA9] text-white shadow-lg">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <a href="#" onClick={handleHomeClick} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
               <Home className="h-5 w-5" />
               <span className="text-sm font-medium">Home</span>
-            </Link>
+            </a>
 
             {portalLinks[portal]?.map((link) => (
               <Link

@@ -53,8 +53,14 @@ export default function PlantPortalPage() {
               <CardTitle className="text-primary">Plant Overview</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="relative h-64 mb-4 rounded-lg overflow-hidden">
-                <Image src="/images/bhilai-steel-plant.webp" alt={plantName} fill className="object-cover" />
+              <div className="relative h-64 mb-4 rounded-lg overflow-hidden bg-gray-100">
+                <Image 
+                  src="/images/bhilai-steel-plant.webp" 
+                  alt={plantName} 
+                  fill 
+                  className="object-contain"
+                  style={{ objectFit: "contain" }}
+                />
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
