@@ -106,7 +106,7 @@ export function PlantStockRequestForm({ plantId, onSubmit }: StockRequestFormPro
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="material">Material</Label>
+                <Label htmlFor="material">Raw Material</Label>
                 <Select value={material} onValueChange={setMaterial}>
                   <SelectTrigger id="material">
                     <SelectValue />
@@ -125,9 +125,19 @@ export function PlantStockRequestForm({ plantId, onSubmit }: StockRequestFormPro
                     <SelectValue placeholder="Select grade" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="prime_hard">Prime Hard Coking</SelectItem>
-                    <SelectItem value="semi_soft">Semi-Soft Coking</SelectItem>
-                    <SelectItem value="medium">Medium Coking</SelectItem>
+                    {material === "coking_coal" ? (
+                      <>
+                        <SelectItem value="prime_hard">Prime Hard Coking</SelectItem>
+                        <SelectItem value="semi_soft">Semi-Soft Coking</SelectItem>
+                        <SelectItem value="medium">Medium Coking</SelectItem>
+                      </>
+                    ) : (
+                      <>
+                        <SelectItem value="high_grade">High Grade</SelectItem>
+                        <SelectItem value="medium_grade">Medium Grade</SelectItem>
+                        <SelectItem value="standard">Standard</SelectItem>
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
               </div>

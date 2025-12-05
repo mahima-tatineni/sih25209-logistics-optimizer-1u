@@ -4,7 +4,7 @@ export const ROLE_PORTALS: Record<User["role"], string> = {
   PlantAdmin: "/plant-portal",
   ProcurementAdmin: "/procurement",
   LogisticsTeam: "/logistics",
-  PortAdmin: "/port-portal",
+  PortAdmin: "/port",
   RailwayAdmin: "/railway",
   SystemAdmin: "/admin",
   Guest: "/",
@@ -16,9 +16,9 @@ export function getDefaultPortalForRole(role: User["role"], user?: User): string
     return `/plant/${user.plant_id}`
   }
   
-  // For port users, route to port-specific page
-  if (role === "PortAdmin" && user?.port_id) {
-    return `/port/${user.port_id}`
+  // For port users, route to port home (port code extracted from email in the page)
+  if (role === "PortAdmin") {
+    return "/port"
   }
   
   return ROLE_PORTALS[role] || "/"
@@ -32,9 +32,9 @@ export function getHomeRouteForUser(user: User | null): string {
     return `/plant/${user.plant_id}`
   }
   
-  // Port users go to their specific port page
-  if (user.role === "PortAdmin" && user.port_id) {
-    return `/port/${user.port_id}`
+  // Port users go to port home (port code extracted from email in the page)
+  if (user.role === "PortAdmin") {
+    return "/port"
   }
   
   // Procurement goes to dashboard

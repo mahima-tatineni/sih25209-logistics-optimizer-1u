@@ -26,14 +26,21 @@ export function PortalNav({ title, portal }: PortalNavProps) {
       { label: "Vessel Planning", href: "/procurement?tab=vessels" },
     ],
     logistics: [
-      { label: "Dashboard", href: "/logistics" },
-      { label: "Optimization", href: "/logistics?tab=optimization" },
+      { label: "Home", href: "/logistics" },
+      { label: "Schedules", href: "/logistics/schedules" },
+      { label: "Tracking", href: "/logistics/tracking-dashboard" },
     ],
     port: [
-      { label: "Dashboard", href: "/port-portal" },
-      { label: "Port Console", href: "/port-console" },
+      { label: "Home", href: "/port" },
+      { label: "Daily Capacity", href: "/port/capacity" },
+      { label: "Vessel Requests", href: "/port/requests" },
     ],
-    railway: [{ label: "Dashboard", href: "/railway" }],
+    railway: [
+      { label: "Home", href: "/railway" },
+      { label: "Daily Capacity", href: "/railway/capacity" },
+      { label: "Schedule Requests", href: "/railway/requests" },
+      { label: "History", href: "/railway/history" },
+    ],
     admin: [{ label: "Dashboard", href: "/admin" }],
   }
 

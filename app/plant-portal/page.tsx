@@ -24,12 +24,61 @@ export default function PlantPortalPage() {
     limestone: { quantity: 75000, days_cover: 28 },
   })
   const [showRequestForm, setShowRequestForm] = useState(false)
+  const [upcomingArrivals, setUpcomingArrivals] = useState<any[]>([])
+  const [stockHistory, setStockHistory] = useState<any[]>([])
+  const [loadingStock, setLoadingStock] = useState(true)
 
   useEffect(() => {
     if (!isAuthenticated) {
       router.push("/login")
+    } else if (user?.plant_id) {
+      fetchCurrentStock()
+      fetchUpcomingArrivals()
+      fetchStockHistory()
     }
-  }, [isAuthenticated, router])
+  }, [isAuthenticated, user, router])
+
+  const fetchCurrentStock = async () => {
+    try {
+      const plantId = user?.plant_id || "BSP"
+      const response = await fetch(`/api/plant/${plantId}/stock`)
+      if (response.ok) {
+        const data = await response.json()
+        setCurrentStock(data.stock)
+      }
+    } catch (error) {
+      console.error("[v0] Error fetching stock:", error)
+    } finally {
+      setLoadingStock(false)
+    }
+  }
+
+  const fetchUpcomingArrivals = async () => {
+    try {
+      const plantId = user?.plant_id || "BSP"
+      // Fetch schedules that are assigned to this plant
+      const response = await fetch(`/api/schedules-full?plant_id=${plantId}&status=Confirmed,In Transit,optimized`)
+      if (response.ok) {
+        const data = await response.json()
+        setUpcomingArrivals(data.data?.slice(0, 3) || [])
+      }
+    } catch (error) {
+      console.error("[v0] Error fetching arrivals:", error)
+    }
+  }
+
+  const fetchStockHistory = async () => {
+    try {
+      const plantId = user?.plant_id || "BSP"
+      const response = await fetch(`/api/plant/${plantId}/events?limit=10`)
+      if (response.ok) {
+        const data = await response.json()
+        setStockHistory(data.events || [])
+      }
+    } catch (error) {
+      console.error("[v0] Error fetching history:", error)
+    }
+  }
 
   if (!isAuthenticated) return null
 
@@ -58,8 +107,8 @@ export default function PlantPortalPage() {
                   src="/images/bhilai-steel-plant.webp" 
                   alt={plantName} 
                   fill 
-                  className="object-contain"
-                  style={{ objectFit: "contain" }}
+                  className="object-cover"
+                  style={{ objectFit: "cover" }}
                 />
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -91,54 +140,83 @@ export default function PlantPortalPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="p-4 bg-secondary/30 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="font-semibold">Coking Coal</p>
-                  <Badge variant={currentStock.coking_coal.days_cover < 20 ? "destructive" : "default"}>
-                    {currentStock.coking_coal.days_cover} days
-                  </Badge>
-                </div>
-                <p className="text-2xl font-bold text-primary">
-                  {(currentStock.coking_coal.quantity / 1000).toFixed(1)} kt
-                </p>
-                <div className="flex items-center gap-1 mt-2 text-sm text-green-600">
-                  <TrendingUp className="h-4 w-4" />
-                  <span>On target</span>
-                </div>
-              </div>
+              {loadingStock ? (
+                <div className="text-center py-4 text-muted-foreground">Loading stock data...</div>
+              ) : (
+                <>
+                  <div className="p-4 bg-secondary/30 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="font-semibold">Coking Coal</p>
+                      <Badge variant={currentStock.coking_coal.days_cover < 20 ? "destructive" : "default"}>
+                        {currentStock.coking_coal.days_cover} days
+                      </Badge>
+                    </div>
+                    <p className="text-2xl font-bold text-primary">
+                      {(currentStock.coking_coal.quantity / 1000).toFixed(1)} kt
+                    </p>
+                    <div className={`flex items-center gap-1 mt-2 text-sm ${
+                      currentStock.coking_coal.days_cover < 15 
+                        ? "text-red-600" 
+                        : currentStock.coking_coal.days_cover < 20 
+                        ? "text-yellow-600" 
+                        : "text-green-600"
+                    }`}>
+                      <TrendingUp className="h-4 w-4" />
+                      <span>
+                        {currentStock.coking_coal.days_cover < 15 
+                          ? "Critical - Order now" 
+                          : currentStock.coking_coal.days_cover < 20 
+                          ? "Low stock" 
+                          : "On target"}
+                      </span>
+                    </div>
+                  </div>
 
-              <div className="p-4 bg-secondary/30 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="font-semibold">Limestone</p>
-                  <Badge variant={currentStock.limestone.days_cover < 20 ? "destructive" : "default"}>
-                    {currentStock.limestone.days_cover} days
-                  </Badge>
-                </div>
-                <p className="text-2xl font-bold text-primary">
-                  {(currentStock.limestone.quantity / 1000).toFixed(1)} kt
-                </p>
-                <div className="flex items-center gap-1 mt-2 text-sm text-green-600">
-                  <TrendingUp className="h-4 w-4" />
-                  <span>On target</span>
-                </div>
-              </div>
+                  <div className="p-4 bg-secondary/30 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="font-semibold">Limestone</p>
+                      <Badge variant={currentStock.limestone.days_cover < 20 ? "destructive" : "default"}>
+                        {currentStock.limestone.days_cover} days
+                      </Badge>
+                    </div>
+                    <p className="text-2xl font-bold text-primary">
+                      {(currentStock.limestone.quantity / 1000).toFixed(1)} kt
+                    </p>
+                    <div className={`flex items-center gap-1 mt-2 text-sm ${
+                      currentStock.limestone.days_cover < 15 
+                        ? "text-red-600" 
+                        : currentStock.limestone.days_cover < 20 
+                        ? "text-yellow-600" 
+                        : "text-green-600"
+                    }`}>
+                      <TrendingUp className="h-4 w-4" />
+                      <span>
+                        {currentStock.limestone.days_cover < 15 
+                          ? "Critical - Order now" 
+                          : currentStock.limestone.days_cover < 20 
+                          ? "Low stock" 
+                          : "On target"}
+                      </span>
+                    </div>
+                  </div>
 
-              {(currentStock.coking_coal.days_cover < 20 || currentStock.limestone.days_cover < 20) && (
-                <div className="flex items-center gap-2 p-3 bg-destructive/10 text-destructive rounded-lg">
-                  <AlertTriangle className="h-4 w-4" />
-                  <p className="text-sm font-medium">Stock below minimum threshold</p>
-                </div>
+                  {(currentStock.coking_coal.days_cover < 20 || currentStock.limestone.days_cover < 20) && (
+                    <div className="flex items-center gap-2 p-3 bg-destructive/10 text-destructive rounded-lg">
+                      <AlertTriangle className="h-4 w-4" />
+                      <p className="text-sm font-medium">Stock below minimum threshold</p>
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
         </div>
 
         <Tabs defaultValue="home" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4 max-w-2xl bg-secondary/20">
+          <TabsList className="grid w-full grid-cols-3 max-w-2xl bg-secondary/20">
             <TabsTrigger value="home">Home</TabsTrigger>
             <TabsTrigger value="stock-updates">Stock Updates</TabsTrigger>
             <TabsTrigger value="requests">Stock Requests</TabsTrigger>
-            <TabsTrigger value="tracking">Schedule Tracking</TabsTrigger>
           </TabsList>
 
           {/* Home Tab */}
@@ -146,58 +224,44 @@ export default function PlantPortalPage() {
             <Card className="border-2 border-primary/20">
               <CardHeader>
                 <CardTitle className="text-primary">Upcoming Arrivals</CardTitle>
-                <CardDescription>Next 3 scheduled vessels/rakes to this plant</CardDescription>
+                <CardDescription>Scheduled shipments assigned to this plant</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {[
-                    {
-                      vessel: "Cape Mercury",
-                      origin: "Gladstone",
-                      eta: "2025-01-15",
-                      material: "Coking Coal",
-                      qty: "75,000",
-                      status: "In Transit",
-                    },
-                    {
-                      vessel: "Rail Rake #R-2401",
-                      origin: "Paradip Port",
-                      eta: "2025-01-08",
-                      material: "Coking Coal",
-                      qty: "4,000",
-                      status: "In Transit",
-                    },
-                    {
-                      vessel: "Ocean Giant",
-                      origin: "Richards Bay",
-                      eta: "2025-01-20",
-                      material: "Limestone",
-                      qty: "35,000",
-                      status: "Planned",
-                    },
-                  ].map((arrival, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between p-4 bg-secondary/30 rounded-lg hover:bg-secondary/50 transition"
-                    >
-                      <div className="flex-1">
-                        <p className="font-semibold text-primary">{arrival.vessel}</p>
-                        <p className="text-sm text-muted-foreground">
-                          From {arrival.origin} · {arrival.material}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold">{arrival.qty} t</p>
-                        <div className="flex items-center justify-end gap-2 mt-1">
-                          <Badge variant={arrival.status === "In Transit" ? "default" : "secondary"}>
-                            {arrival.status}
-                          </Badge>
-                          <p className="text-sm text-muted-foreground">ETA: {arrival.eta}</p>
+                {upcomingArrivals.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No upcoming arrivals scheduled</p>
+                    <p className="text-sm mt-2">Create a stock request to initiate procurement</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {upcomingArrivals.map((arrival, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between p-4 bg-secondary/30 rounded-lg hover:bg-secondary/50 transition"
+                      >
+                        <div className="flex-1">
+                          <p className="font-semibold text-primary">{arrival.vessel_name || "Vessel TBD"}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {arrival.supplier_port_id} → {arrival.optimized_port_id || "Port TBD"} · {arrival.material_type}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold">{arrival.quantity?.toLocaleString()} t</p>
+                          <div className="flex items-center justify-end gap-2 mt-1">
+                            <Badge variant={arrival.status === "In Transit" ? "default" : "secondary"}>
+                              {arrival.status}
+                            </Badge>
+                            {arrival.eta_discharge && (
+                              <p className="text-sm text-muted-foreground">
+                                ETA: {new Date(arrival.eta_discharge).toLocaleDateString()}
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -234,18 +298,26 @@ export default function PlantPortalPage() {
           {/* Stock Updates Tab */}
           <TabsContent value="stock-updates" className="space-y-4">
             <PlantStockUpdatesForm
-              onSubmit={(data) => {
+              onSubmit={async (data) => {
                 console.log("[v0] Stock update submitted:", data)
-                // Update stock based on receipt or consumption
-                if (data.event_type === "receipt") {
-                  setCurrentStock((prev) => ({
-                    ...prev,
-                    [data.material as keyof typeof prev]: {
-                      ...prev[data.material as keyof typeof prev],
-                      quantity: prev[data.material as keyof typeof prev].quantity + data.quantity,
-                      days_cover: 28, // Recalculate in real implementation
-                    },
-                  }))
+                try {
+                  const plantId = user?.plant_id || "BSP"
+                  const response = await fetch(`/api/plant/${plantId}/stock`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      ...data,
+                      user_id: user?.id,
+                    }),
+                  })
+                  
+                  if (response.ok) {
+                    // Refresh stock and history
+                    fetchCurrentStock()
+                    fetchStockHistory()
+                  }
+                } catch (error) {
+                  console.error("[v0] Error updating stock:", error)
                 }
               }}
             />
@@ -253,85 +325,56 @@ export default function PlantPortalPage() {
             <Card className="border-2 border-primary/20">
               <CardHeader>
                 <CardTitle className="text-primary">Stock Movement History</CardTitle>
-                <CardDescription>Last 7 days of receipts and consumption</CardDescription>
+                <CardDescription>Day-wise usage and receipt after each stock update</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-primary/10">
-                        <th className="text-left py-3 px-4 font-semibold text-primary">Date</th>
-                        <th className="text-left py-3 px-4 font-semibold text-primary">Type</th>
-                        <th className="text-left py-3 px-4 font-semibold text-primary">Material</th>
-                        <th className="text-left py-3 px-4 font-semibold text-primary">Quantity (t)</th>
-                        <th className="text-left py-3 px-4 font-semibold text-primary">Reference</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[
-                        {
-                          date: "2025-01-05",
-                          type: "Receipt",
-                          material: "Coking Coal",
-                          qty: "4,000",
-                          ref: "Rake #R-2398",
-                        },
-                        {
-                          date: "2025-01-04",
-                          type: "Consumption",
-                          material: "Limestone",
-                          qty: "1,200",
-                          ref: "Daily use",
-                        },
-                        {
-                          date: "2025-01-04",
-                          type: "Receipt",
-                          material: "Limestone",
-                          qty: "2,000",
-                          ref: "Rake #R-2397",
-                        },
-                        {
-                          date: "2025-01-03",
-                          type: "Consumption",
-                          material: "Coking Coal",
-                          qty: "3,500",
-                          ref: "Daily use",
-                        },
-                        {
-                          date: "2025-01-02",
-                          type: "Receipt",
-                          material: "Coking Coal",
-                          qty: "5,000",
-                          ref: "Rake #R-2396",
-                        },
-                        {
-                          date: "2025-01-02",
-                          type: "Consumption",
-                          material: "Limestone",
-                          qty: "1,100",
-                          ref: "Daily use",
-                        },
-                        {
-                          date: "2025-01-01",
-                          type: "Consumption",
-                          material: "Coking Coal",
-                          qty: "3,400",
-                          ref: "Daily use",
-                        },
-                      ].map((event, idx) => (
-                        <tr key={idx} className="border-b border-primary/5 hover:bg-primary/5">
-                          <td className="py-3 px-4 text-foreground">{event.date}</td>
-                          <td className="py-3 px-4">
-                            <Badge variant={event.type === "Receipt" ? "default" : "secondary"}>{event.type}</Badge>
-                          </td>
-                          <td className="py-3 px-4 font-medium">{event.material}</td>
-                          <td className="py-3 px-4 font-semibold text-primary">{event.qty}</td>
-                          <td className="py-3 px-4 text-muted-foreground">{event.ref}</td>
+                {stockHistory.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No stock movements recorded yet</p>
+                    <p className="text-sm mt-2">Record receipts and consumption above</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-primary/10">
+                          <th className="text-left py-3 px-4 font-semibold text-primary">Date & Time</th>
+                          <th className="text-left py-3 px-4 font-semibold text-primary">Type</th>
+                          <th className="text-left py-3 px-4 font-semibold text-primary">Material</th>
+                          <th className="text-left py-3 px-4 font-semibold text-primary">Quantity (t)</th>
+                          <th className="text-left py-3 px-4 font-semibold text-primary">Reference</th>
+                          <th className="text-left py-3 px-4 font-semibold text-primary">Comment</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {stockHistory.map((event, idx) => (
+                          <tr key={idx} className="border-b border-primary/5 hover:bg-primary/5">
+                            <td className="py-3 px-4 text-foreground">
+                              {new Date(event.date_time).toLocaleString()}
+                            </td>
+                            <td className="py-3 px-4">
+                              <Badge variant={event.event_type === "rake_arrival" ? "default" : "secondary"}>
+                                {event.event_type === "rake_arrival" ? "Receipt" : "Consumption"}
+                              </Badge>
+                            </td>
+                            <td className="py-3 px-4 font-medium capitalize">
+                              {event.material?.replace("_", " ")}
+                            </td>
+                            <td className="py-3 px-4 font-semibold text-primary">
+                              {event.quantity_t?.toLocaleString()}
+                            </td>
+                            <td className="py-3 px-4 text-muted-foreground">
+                              {event.rake_id || "Daily use"}
+                            </td>
+                            <td className="py-3 px-4 text-muted-foreground text-xs">
+                              {event.comment || "-"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -344,9 +387,12 @@ export default function PlantPortalPage() {
                   Cancel
                 </Button>
                 <PlantStockRequestForm
+                  plantId={user?.plant_id}
                   onSubmit={(data) => {
                     console.log("[v0] Stock request submitted:", data)
                     setShowRequestForm(false)
+                    // Refresh upcoming arrivals after request is created
+                    fetchUpcomingArrivals()
                   }}
                 />
               </div>
@@ -356,8 +402,8 @@ export default function PlantPortalPage() {
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <div>
-                        <CardTitle className="text-primary">Create Stock Request</CardTitle>
-                        <CardDescription>Submit replenishment requirements to procurement</CardDescription>
+                        <CardTitle className="text-primary">Current Stock Requests</CardTitle>
+                        <CardDescription>View and create replenishment requests sent to procurement</CardDescription>
                       </div>
                       <Button className="bg-accent hover:bg-accent/90" onClick={() => setShowRequestForm(true)}>
                         <Plus className="h-4 w-4 mr-2" />
@@ -367,14 +413,9 @@ export default function PlantPortalPage() {
                   </CardHeader>
                 </Card>
 
-                <PlantRequestsList />
+                <PlantRequestsList plantId={user?.plant_id} />
               </>
             )}
-          </TabsContent>
-
-          {/* Schedule Tracking Tab */}
-          <TabsContent value="tracking" className="space-y-4">
-            <PlantScheduleTracking />
           </TabsContent>
         </Tabs>
       </div>

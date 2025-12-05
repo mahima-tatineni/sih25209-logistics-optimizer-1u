@@ -1,9 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 
-export async function GET(request: NextRequest, { params }: { params: { plantId: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ plantId: string }> }) {
   try {
-    const { plantId } = params
+    const { plantId } = await params
     const supabase = await createClient()
 
     // Get last 30 days of events for this plant

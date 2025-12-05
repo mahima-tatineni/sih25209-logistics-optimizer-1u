@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { ArrowLeft, Ship, Anchor, CheckCircle2, Clock, MapPin, TrendingUp } from "lucide-react"
+import { ShipmentMap } from "@/components/tracking/ShipmentMap"
 
 export default function TrackingPage() {
   const { user, isAuthenticated } = useAuth()
@@ -29,9 +30,22 @@ export default function TrackingPage() {
   const fetchScheduleDetails = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`/api/schedules-full/${scheduleId}`)
+      
+      // Fetch from procurement schedules API (where mock data is stored)
+      const response = await fetch("/api/procurement/schedules")
       const data = await response.json()
-      setSchedule(data.data)
+      
+      // Find the schedule with matching ID
+      const foundSchedule = data.data?.find((s: any) => s.id === scheduleId)
+      
+      if (foundSchedule) {
+        setSchedule(foundSchedule)
+      } else {
+        // Fallback: try schedules-full API
+        const fallbackResponse = await fetch(`/api/schedules-full/${scheduleId}`)
+        const fallbackData = await fallbackResponse.json()
+        setSchedule(fallbackData.data)
+      }
     } catch (error) {
       console.error("[v0] Failed to fetch schedule:", error)
     } finally {
@@ -45,18 +59,18 @@ export default function TrackingPage() {
     { label: "Schedule Created", status: "completed", date: schedule?.created_at },
     {
       label: "Port Selected",
-      status: schedule?.optimized_port_id ? "completed" : "pending",
-      date: schedule?.optimized_at,
+      status: schedule?.selected_port ? "completed" : "pending",
+      date: schedule?.updated_at,
     },
     {
       label: "Vessel Sailed",
-      status: schedule?.status === "in_transit" ? "completed" : "pending",
-      date: schedule?.actual_sail_date,
+      status: schedule?.status === "IN_TRANSIT" ? "completed" : "pending",
+      date: schedule?.sailing_date,
     },
     {
       label: "Vessel Arrived",
-      status: schedule?.status === "completed" ? "completed" : "pending",
-      date: schedule?.actual_arrival_date,
+      status: schedule?.status === "DELIVERED" ? "completed" : "pending",
+      date: schedule?.required_by_date,
     },
     { label: "Cargo Discharged", status: "pending", date: null },
     { label: "Rail Transport", status: "pending", date: null },
@@ -70,7 +84,7 @@ export default function TrackingPage() {
       <PortalNav title="Schedule Tracking" portal="logistics" />
 
       <div className="container mx-auto px-4 py-8">
-        <Button variant="ghost" className="mb-4" onClick={() => router.push("/logistics/schedules")}>
+        <Button variant="ghost" className="mb-4" onClick={() => router.push("/logistics")}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Schedules
         </Button>
@@ -82,7 +96,7 @@ export default function TrackingPage() {
                 <div>
                   <h1 className="text-2xl font-bold text-primary mb-1">{schedule.vessel_name}</h1>
                   <p className="text-muted-foreground">
-                    Schedule #{schedule.id?.substring(0, 12)} • {schedule.material_type?.replace("_", " ")}
+                    {schedule.schedule_code} • {schedule.material?.replace("_", " ")}
                   </p>
                 </div>
                 <Badge variant="default" className="text-lg py-2 px-4">
@@ -93,22 +107,31 @@ export default function TrackingPage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">From</p>
-                  <p className="font-semibold">{schedule.supplier_port_id}</p>
+                  <p className="font-semibold">{schedule.load_port_code}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">To</p>
-                  <p className="font-semibold">{schedule.optimized_port_id || "TBD"}</p>
+                  <p className="font-semibold">{schedule.selected_port || "TBD"}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Quantity</p>
-                  <p className="font-semibold">{schedule.quantity?.toLocaleString()} T</p>
+                  <p className="font-semibold">{schedule.quantity_t?.toLocaleString()} T</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Estimated Cost</p>
-                  <p className="font-semibold">₹{(schedule.estimated_cost / 10000000).toFixed(2)} Cr</p>
+                  <p className="font-semibold">
+                    {schedule.cost_estimate_inr 
+                      ? `₹${(schedule.cost_estimate_inr / 10000000).toFixed(2)} Cr`
+                      : "TBD"}
+                  </p>
                 </div>
               </div>
             </Card>
+
+            {/* Shipment Route Map - Full Width */}
+            <div className="mb-6">
+              <ShipmentMap scheduleId={scheduleId} />
+            </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
               <Card className="lg:col-span-2">
@@ -169,7 +192,7 @@ export default function TrackingPage() {
                   </CardHeader>
                   <CardContent>
                     <p className="text-2xl font-bold text-primary mb-2">
-                      {schedule.status === "in_transit" ? "Indian Ocean" : schedule.supplier_port_id}
+                      {schedule.status === "IN_TRANSIT" ? "Indian Ocean" : schedule.load_port_code}
                     </p>
                     <p className="text-sm text-muted-foreground">Last updated: {new Date().toLocaleString()}</p>
                   </CardContent>
@@ -184,7 +207,9 @@ export default function TrackingPage() {
                   </CardHeader>
                   <CardContent>
                     <p className="text-sm text-muted-foreground mb-1">Expected Arrival</p>
-                    <p className="text-lg font-bold text-primary mb-3">{schedule.laycan_end}</p>
+                    <p className="text-lg font-bold text-primary mb-3">
+                      {schedule.required_by_date ? new Date(schedule.required_by_date).toLocaleDateString() : "TBD"}
+                    </p>
                     <Badge variant="outline" className="bg-green-50 text-green-700">
                       <TrendingUp className="h-3 w-3 mr-1" />
                       On Schedule
@@ -194,23 +219,20 @@ export default function TrackingPage() {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>Linked Plant Requests</CardTitle>
+                    <CardTitle>Target Plant</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {schedule.linked_requests?.length > 0 ? (
-                      <div className="space-y-2">
-                        {schedule.linked_requests.map((req: any, idx: number) => (
-                          <div key={idx} className="p-3 bg-secondary/30 rounded-lg">
-                            <p className="font-semibold">{req.plant_id}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {req.quantity_requested?.toLocaleString()} T
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">No linked requests</p>
-                    )}
+                    <div className="p-3 bg-secondary/30 rounded-lg">
+                      <p className="font-semibold text-lg">{schedule.target_plant_code}</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {schedule.quantity_t?.toLocaleString()} T {schedule.material?.replace("_", " ")}
+                      </p>
+                      {schedule.selected_port && (
+                        <p className="text-sm text-primary mt-2">
+                          Via {schedule.selected_port}
+                        </p>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               </div>

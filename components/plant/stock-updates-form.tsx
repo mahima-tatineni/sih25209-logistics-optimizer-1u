@@ -21,34 +21,45 @@ export function PlantStockUpdatesForm({ onSubmit }: StockUpdateFormProps) {
   const [rakeId, setRakeId] = useState("")
   const [arrivalDate, setArrivalDate] = useState("")
   const [note, setNote] = useState("")
+  const [loading, setLoading] = useState(false)
 
-  const handleRakeReceiptSubmit = (e: React.FormEvent) => {
+  const handleRakeReceiptSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    onSubmit({
-      event_type: "receipt",
-      material,
-      quantity: Number.parseInt(quantity),
-      rake_id: rakeId,
-      arrival_date: arrivalDate,
-      note,
-    })
-    setQuantity("")
-    setRakeId("")
-    setArrivalDate("")
-    setNote("")
+    setLoading(true)
+    try {
+      await onSubmit({
+        event_type: "receipt",
+        material,
+        quantity: Number.parseInt(quantity),
+        rake_id: rakeId,
+        arrival_date: arrivalDate,
+        comment: note,
+      })
+      setQuantity("")
+      setRakeId("")
+      setArrivalDate("")
+      setNote("")
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleConsumptionSubmit = (e: React.FormEvent) => {
+  const handleConsumptionSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    onSubmit({
-      event_type: "consumption",
-      material,
-      quantity: Number.parseInt(quantity),
-      date: new Date().toISOString().split("T")[0],
-      note,
-    })
-    setQuantity("")
-    setNote("")
+    setLoading(true)
+    try {
+      await onSubmit({
+        event_type: "consumption",
+        material,
+        quantity: Number.parseInt(quantity),
+        date: new Date().toISOString().split("T")[0],
+        comment: note,
+      })
+      setQuantity("")
+      setNote("")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -127,8 +138,8 @@ export function PlantStockUpdatesForm({ onSubmit }: StockUpdateFormProps) {
                 />
               </div>
 
-              <Button type="submit" className="w-full bg-accent hover:bg-accent/90">
-                Record Receipt
+              <Button type="submit" className="w-full bg-accent hover:bg-accent/90" disabled={loading}>
+                {loading ? "Recording..." : "Record Receipt"}
               </Button>
             </form>
           </CardContent>
@@ -181,8 +192,8 @@ export function PlantStockUpdatesForm({ onSubmit }: StockUpdateFormProps) {
                 />
               </div>
 
-              <Button type="submit" className="w-full bg-accent hover:bg-accent/90">
-                Record Consumption
+              <Button type="submit" className="w-full bg-accent hover:bg-accent/90" disabled={loading}>
+                {loading ? "Recording..." : "Record Consumption"}
               </Button>
             </form>
           </CardContent>

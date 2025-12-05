@@ -15,6 +15,7 @@ import { InventoryMonitor } from "@/components/procurement/inventory-monitor"
 import { PlantRequestsList } from "@/components/procurement/plant-requests-list"
 import { VesselPlanningForm } from "@/components/procurement/vessel-planning-form"
 import { SchedulesList } from "@/components/procurement/schedules-list"
+import { ProcurementTrackingDashboard } from "@/components/procurement/tracking-dashboard"
 
 export default function ProcurementPage() {
   const { user, isAuthenticated } = useAuth()
@@ -42,12 +43,13 @@ export default function ProcurementPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5 max-w-3xl bg-secondary/20">
+          <TabsList className="grid w-full grid-cols-6 max-w-4xl bg-secondary/20">
             <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
             <TabsTrigger value="inventory">Inventory</TabsTrigger>
             <TabsTrigger value="requests">Requests</TabsTrigger>
             <TabsTrigger value="vessels">Vessels</TabsTrigger>
             <TabsTrigger value="schedules">Schedules</TabsTrigger>
+            <TabsTrigger value="tracking">Tracking</TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-4">
@@ -90,6 +92,10 @@ export default function ProcurementPage() {
 
           <TabsContent value="schedules" className="space-y-4">
             <SchedulesList shipments={shipments} />
+          </TabsContent>
+
+          <TabsContent value="tracking" className="space-y-4">
+            <ProcurementTrackingDashboard />
           </TabsContent>
         </Tabs>
       </div>

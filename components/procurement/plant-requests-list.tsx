@@ -6,14 +6,16 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { CheckCircle2, XCircle } from "lucide-react"
+import { CheckCircle2, XCircle, Ship } from "lucide-react"
+import { ScheduleCreationForm } from "./schedule-creation-form"
 
 export function PlantRequestsList() {
   const [requests, setRequests] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedRequest, setSelectedRequest] = useState<any>(null)
-  const [actionType, setActionType] = useState<"approve" | "reject" | null>(null)
+  const [actionType, setActionType] = useState<"approve" | "reject" | "schedule" | null>(null)
   const [notes, setNotes] = useState("")
+  const [showScheduleForm, setShowScheduleForm] = useState(false)
 
   useEffect(() => {
     fetchRequests()
@@ -21,24 +23,13 @@ export function PlantRequestsList() {
 
   const fetchRequests = async () => {
     try {
-      const response = await fetch("/api/stock-requests?status=pending,under_review")
+      const response = await fetch("/api/stock-requests")
       const data = await response.json()
+      console.log("[v0] Fetched requests:", data)
       setRequests(data.data || [])
     } catch (error) {
       console.error("[v0] Error fetching requests:", error)
-      setRequests([
-        {
-          id: "SR001",
-          plant_id: "BSP",
-          material_type: "coking_coal",
-          quality_grade: "Prime Hard",
-          quantity_requested: 50000,
-          required_by_date: "2025-01-15",
-          priority: "normal",
-          status: "pending",
-          created_at: "2024-12-28",
-        },
-      ])
+      setRequests([])
     } finally {
       setLoading(false)
     }
@@ -48,7 +39,7 @@ export function PlantRequestsList() {
     if (!selectedRequest || !actionType) return
 
     try {
-      const newStatus = actionType === "approve" ? "approved" : "rejected"
+      const newStatus = actionType === "approve" ? "APPROVED" : "REJECTED"
       const response = await fetch(`/api/stock-requests/${selectedRequest.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -58,7 +49,16 @@ export function PlantRequestsList() {
         }),
       })
 
-      if (!response.ok) throw new Error("Failed to update request")
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to update request")
+      }
+
+      const result = await response.json()
+      console.log("[v0] Request updated:", result)
+
+      // Show success message
+      alert(`Request ${actionType === "approve" ? "approved" : "rejected"} successfully!`)
 
       await fetchRequests()
       setSelectedRequest(null)
@@ -66,7 +66,7 @@ export function PlantRequestsList() {
       setNotes("")
     } catch (error) {
       console.error("[v0] Error updating request:", error)
-      alert("Failed to update request. Please try again.")
+      alert(error instanceof Error ? error.message : "Failed to update request. Please try again.")
     }
   }
 
@@ -110,19 +110,19 @@ export function PlantRequestsList() {
                   {requests.map((req) => (
                     <tr key={req.id} className="border-b border-primary/5 hover:bg-primary/5">
                       <td className="py-3 px-4 font-semibold text-primary">{req.id?.substring(0, 8)}</td>
-                      <td className="py-3 px-4 font-medium">{req.plant_id}</td>
+                      <td className="py-3 px-4 font-medium">{req.plants?.code || req.plant_id}</td>
                       <td className="py-3 px-4 text-foreground/70 capitalize">
-                        {req.material_type?.replace("_", " ")}
+                        {req.material?.replace("_", " ") || req.material_type?.replace("_", " ")}
                       </td>
-                      <td className="py-3 px-4 font-semibold">{req.quantity_requested?.toLocaleString()}t</td>
+                      <td className="py-3 px-4 font-semibold">{(req.quantity_t || req.quantity_requested)?.toLocaleString()}t</td>
                       <td className="py-3 px-4 text-foreground">{req.required_by_date}</td>
-                      <td className="py-3 px-4 text-foreground/70">N/A</td>
+                      <td className="py-3 px-4 text-foreground/70">{req.current_days_cover || "N/A"}</td>
                       <td className="py-3 px-4">
                         <Badge
                           variant={
-                            req.priority === "critical"
+                            req.priority?.toLowerCase() === "critical"
                               ? "destructive"
-                              : req.priority === "high"
+                              : req.priority?.toLowerCase() === "high"
                                 ? "secondary"
                                 : "default"
                           }
@@ -131,11 +131,23 @@ export function PlantRequestsList() {
                         </Badge>
                       </td>
                       <td className="py-3 px-4">
-                        <Badge variant={req.status === "pending" ? "secondary" : "default"}>
+                        <Badge variant={req.status?.toLowerCase() === "pending" ? "secondary" : "default"}>
                           {req.status?.toUpperCase()}
                         </Badge>
                       </td>
                       <td className="py-3 px-4 space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-blue-600 hover:text-blue-700"
+                          onClick={() => {
+                            setSelectedRequest(req)
+                            setShowScheduleForm(true)
+                          }}
+                          title="Create Schedule"
+                        >
+                          <Ship className="h-4 w-4" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -144,6 +156,7 @@ export function PlantRequestsList() {
                             setSelectedRequest(req)
                             setActionType("approve")
                           }}
+                          title="Approve"
                         >
                           <CheckCircle2 className="h-4 w-4" />
                         </Button>
@@ -155,6 +168,7 @@ export function PlantRequestsList() {
                             setSelectedRequest(req)
                             setActionType("reject")
                           }}
+                          title="Reject"
                         >
                           <XCircle className="h-4 w-4" />
                         </Button>
@@ -168,8 +182,22 @@ export function PlantRequestsList() {
         </CardContent>
       </Card>
 
+      {/* Schedule Creation Form */}
+      <ScheduleCreationForm
+        request={selectedRequest}
+        open={showScheduleForm}
+        onClose={() => {
+          setShowScheduleForm(false)
+          setSelectedRequest(null)
+        }}
+        onSuccess={() => {
+          fetchRequests()
+        }}
+      />
+
+      {/* Approve/Reject Dialog */}
       <Dialog
-        open={selectedRequest !== null}
+        open={selectedRequest !== null && !showScheduleForm}
         onOpenChange={() => {
           setSelectedRequest(null)
           setActionType(null)

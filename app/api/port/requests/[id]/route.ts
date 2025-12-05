@@ -1,0 +1,36 @@
+import { type NextRequest, NextResponse } from "next/server"
+
+declare global {
+  var portRequests: any[] | undefined
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const body = await request.json()
+
+    if (!global.portRequests) {
+      return NextResponse.json({ error: "Request not found" }, { status: 404 })
+    }
+
+    const index = global.portRequests.findIndex((r: any) => r.id === id)
+
+    if (index === -1) {
+      return NextResponse.json({ error: "Request not found" }, { status: 404 })
+    }
+
+    global.portRequests[index] = {
+      ...global.portRequests[index],
+      ...body,
+      updated_at: new Date().toISOString(),
+    }
+
+    return NextResponse.json({ success: true, data: global.portRequests[index] }, { status: 200 })
+  } catch (error: any) {
+    console.error("[Port Request] PATCH error:", error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}

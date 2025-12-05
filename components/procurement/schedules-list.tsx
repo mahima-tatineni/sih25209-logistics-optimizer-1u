@@ -21,7 +21,8 @@ export function SchedulesList() {
   const fetchSchedules = async () => {
     try {
       setLoading(true)
-      const response = await fetch("/api/schedules-full")
+      // Fetch from procurement schedules API (where mock data is stored)
+      const response = await fetch("/api/procurement/schedules")
       const data = await response.json()
       setSchedules(data.data || [])
     } catch (error) {
@@ -33,14 +34,30 @@ export function SchedulesList() {
 
   const handleSendToLogistics = async (scheduleId: string) => {
     try {
-      await fetch(`/api/schedules-full/${scheduleId}`, {
+      await fetch(`/api/procurement/schedules/${scheduleId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "pending_optimization" }),
+        body: JSON.stringify({ status: "SENT_TO_LOGISTICS" }),
       })
       fetchSchedules()
     } catch (error) {
       console.error("[v0] Failed to send schedule to logistics:", error)
+    }
+  }
+
+  const handleDeleteSchedule = async (scheduleId: string) => {
+    if (!confirm("Are you sure you want to delete this draft schedule? This action cannot be undone.")) return
+
+    try {
+      await fetch(`/api/procurement/schedules/${scheduleId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      })
+      fetchSchedules()
+      alert("Schedule deleted successfully")
+    } catch (error) {
+      console.error("[v0] Failed to delete schedule:", error)
+      alert("Failed to delete schedule")
     }
   }
 
@@ -61,12 +78,13 @@ export function SchedulesList() {
     }
   }
 
-  const draftSchedules = schedules.filter((s) => s.status === "draft")
-  const pendingSchedules = schedules.filter((s) => s.status === "pending_optimization")
-  const optimizedSchedules = schedules.filter((s) => s.status === "optimized")
-  const confirmedSchedules = schedules.filter((s) => s.status === "Confirmed" || s.status === "In Transit")
+  const draftSchedules = schedules.filter((s) => s.status === "draft" || s.status === "NEW")
+  const pendingSchedules = schedules.filter((s) => s.status === "SENT_TO_LOGISTICS")
+  const returnedSchedules = schedules.filter((s) => s.status === "RETURNED" || s.status === "RETURNED_TO_PROCUREMENT")
+  const optimizedSchedules = schedules.filter((s) => s.status === "PORT_SELECTED")
+  const confirmedSchedules = schedules.filter((s) => s.status === "Confirmed" || s.status === "IN_TRANSIT" || s.status === "DELIVERED")
 
-  const renderScheduleCard = (sch: any, showActions: "send" | "confirm" | "view") => (
+  const renderScheduleCard = (sch: any, showActions: "send" | "confirm" | "view" | "draft") => (
     <Card key={sch.id} className="border-2 border-primary/20">
       <CardContent className="pt-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
@@ -127,6 +145,21 @@ export function SchedulesList() {
         <div className="flex items-center justify-between">
           <Badge variant={sch.status === "Confirmed" ? "default" : "secondary"}>{sch.status}</Badge>
           <div className="flex gap-2">
+            {showActions === "draft" && (
+              <>
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  onClick={() => handleDeleteSchedule(sch.id)}
+                >
+                  Delete
+                </Button>
+                <Button className="bg-accent hover:bg-accent/90" size="sm" onClick={() => handleSendToLogistics(sch.id)}>
+                  Send to Logistics
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              </>
+            )}
             {showActions === "send" && (
               <Button className="bg-accent hover:bg-accent/90" size="sm" onClick={() => handleSendToLogistics(sch.id)}>
                 Send to Logistics
@@ -174,12 +207,15 @@ export function SchedulesList() {
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-      <TabsList className="grid w-full grid-cols-4 max-w-3xl bg-secondary/20">
+      <TabsList className="grid w-full grid-cols-5 max-w-4xl bg-secondary/20">
         <TabsTrigger value="draft">
           Draft <Badge className="ml-2">{draftSchedules.length}</Badge>
         </TabsTrigger>
         <TabsTrigger value="pending">
           Sent to Logistics <Badge className="ml-2">{pendingSchedules.length}</Badge>
+        </TabsTrigger>
+        <TabsTrigger value="returned">
+          Returned <Badge className="ml-2 bg-red-500">{returnedSchedules.length}</Badge>
         </TabsTrigger>
         <TabsTrigger value="optimized">
           Optimized <Badge className="ml-2">{optimizedSchedules.length}</Badge>
@@ -201,7 +237,7 @@ export function SchedulesList() {
             <CardContent className="py-12 text-center text-muted-foreground">No draft schedules</CardContent>
           </Card>
         ) : (
-          draftSchedules.map((sch) => renderScheduleCard(sch, "send"))
+          draftSchedules.map((sch) => renderScheduleCard(sch, "draft"))
         )}
       </TabsContent>
 
@@ -218,6 +254,64 @@ export function SchedulesList() {
           </Card>
         ) : (
           pendingSchedules.map((sch) => renderScheduleCard(sch, "view"))
+        )}
+      </TabsContent>
+
+      <TabsContent value="returned" className="space-y-3">
+        <Card className="border-2 border-red-200 bg-red-50">
+          <CardHeader>
+            <CardTitle className="text-sm text-red-700">Returned by Logistics</CardTitle>
+            <CardDescription>Schedules rejected by logistics team - review and revise before resubmitting</CardDescription>
+          </CardHeader>
+        </Card>
+        {returnedSchedules.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center text-muted-foreground">No returned schedules</CardContent>
+          </Card>
+        ) : (
+          returnedSchedules.map((sch) => (
+            <Card key={sch.id} className="border-2 border-red-200">
+              <CardContent className="pt-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Schedule Code</p>
+                    <p className="font-bold text-primary">{sch.schedule_code}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Vessel</p>
+                    <p className="font-bold">{sch.vessel_name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Material & Quantity</p>
+                    <p className="font-bold">
+                      {sch.material?.replace("_", " ")} · {sch.quantity_t?.toLocaleString()}t
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Target Plant</p>
+                    <p className="font-bold text-primary">{sch.target_plant_code}</p>
+                  </div>
+                </div>
+
+                {sch.notes && (
+                  <div className="mb-4 p-4 bg-red-100 border border-red-300 rounded-lg">
+                    <p className="text-sm font-semibold text-red-800 mb-2">Rejection Reason:</p>
+                    <p className="text-sm text-red-700">{sch.notes}</p>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between">
+                  <Badge variant="destructive">RETURNED</Badge>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => handleSendToLogistics(sch.id)}>
+                      Revise & Resubmit
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))
         )}
       </TabsContent>
 

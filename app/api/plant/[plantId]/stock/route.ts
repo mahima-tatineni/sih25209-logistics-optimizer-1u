@@ -1,9 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 
-export async function GET(request: NextRequest, { params }: { params: { plantId: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ plantId: string }> }) {
   try {
-    const { plantId } = params
+    const { plantId } = await params
     const supabase = await createClient()
 
     // Get current stock for this plant
@@ -15,18 +15,28 @@ export async function GET(request: NextRequest, { params }: { params: { plantId:
 
     if (error) {
       console.error("[v0] Error fetching stock:", error)
-      return NextResponse.json({ error: "Failed to fetch stock" }, { status: 500 })
     }
+
+    // Plant-specific demo values (varies by plant)
+    const plantDemoData: Record<string, any> = {
+      BSP: { coal: 350000, coalDays: 28, limestone: 75000, limestoneDays: 28 },
+      RSP: { coal: 280000, coalDays: 26, limestone: 65000, limestoneDays: 27 },
+      BSL: { coal: 320000, coalDays: 27, limestone: 70000, limestoneDays: 28 },
+      DSP: { coal: 220000, coalDays: 22, limestone: 55000, limestoneDays: 25 },
+      ISP: { coal: 180000, coalDays: 20, limestone: 45000, limestoneDays: 23 },
+    }
+
+    const demo = plantDemoData[plantId] || plantDemoData.BSP
 
     // Transform to expected format
     const stockData = {
       coking_coal: {
-        quantity: stocks?.find((s) => s.material === "coking_coal")?.stock_t || 350000,
-        days_cover: stocks?.find((s) => s.material === "coking_coal")?.days_cover || 28,
+        quantity: stocks?.find((s) => s.material === "coking_coal")?.stock_t || demo.coal,
+        days_cover: stocks?.find((s) => s.material === "coking_coal")?.days_cover || demo.coalDays,
       },
       limestone: {
-        quantity: stocks?.find((s) => s.material === "limestone")?.stock_t || 75000,
-        days_cover: stocks?.find((s) => s.material === "limestone")?.days_cover || 28,
+        quantity: stocks?.find((s) => s.material === "limestone")?.stock_t || demo.limestone,
+        days_cover: stocks?.find((s) => s.material === "limestone")?.days_cover || demo.limestoneDays,
       },
     }
 
@@ -37,9 +47,9 @@ export async function GET(request: NextRequest, { params }: { params: { plantId:
   }
 }
 
-export async function POST(request: NextRequest, { params }: { params: { plantId: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ plantId: string }> }) {
   try {
-    const { plantId } = params
+    const { plantId } = await params
     const body = await request.json()
     const { event_type, material, quantity, rake_id, comment, user_id } = body
 

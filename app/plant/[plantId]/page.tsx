@@ -16,6 +16,7 @@ import { PlantRequestsList } from "@/components/plant/requests-list"
 import { PlantScheduleTracking } from "@/components/plant/schedule-tracking"
 import { CurrentRequestsSummary } from "@/components/plant/current-requests-summary"
 import { StockMovementHistory } from "@/components/plant/stock-movement-history"
+import { UpcomingArrivals } from "@/components/plant/upcoming-arrivals"
 import { PortalNav } from "@/components/portal-nav"
 
 // Plant data mapping
@@ -58,7 +59,7 @@ const PLANT_DATA: Record<string, any> = {
     capacity: "2.5 MTPA",
     coalImport: "1.5 MT",
     limestoneImport: "0.3 MT",
-    image: "/images/iisco-steel-plant.jpg",
+    image: "/iisco-plant.jpg",
   },
 }
 
@@ -189,9 +190,21 @@ export default function PlantPage() {
                 <p className="text-2xl font-bold text-primary">
                   {(currentStock.coking_coal.quantity / 1000).toFixed(1)} kt
                 </p>
-                <div className="flex items-center gap-1 mt-2 text-sm text-green-600">
+                <div className={`flex items-center gap-1 mt-2 text-sm ${
+                  currentStock.coking_coal.days_cover < 15 
+                    ? "text-red-600" 
+                    : currentStock.coking_coal.days_cover < 20 
+                    ? "text-yellow-600" 
+                    : "text-green-600"
+                }`}>
                   <TrendingUp className="h-4 w-4" />
-                  <span>On target</span>
+                  <span>
+                    {currentStock.coking_coal.days_cover < 15 
+                      ? "Critical - Order now" 
+                      : currentStock.coking_coal.days_cover < 20 
+                      ? "Low stock" 
+                      : "On target"}
+                  </span>
                 </div>
               </div>
 
@@ -205,9 +218,21 @@ export default function PlantPage() {
                 <p className="text-2xl font-bold text-primary">
                   {(currentStock.limestone.quantity / 1000).toFixed(1)} kt
                 </p>
-                <div className="flex items-center gap-1 mt-2 text-sm text-green-600">
+                <div className={`flex items-center gap-1 mt-2 text-sm ${
+                  currentStock.limestone.days_cover < 15 
+                    ? "text-red-600" 
+                    : currentStock.limestone.days_cover < 20 
+                    ? "text-yellow-600" 
+                    : "text-green-600"
+                }`}>
                   <TrendingUp className="h-4 w-4" />
-                  <span>On target</span>
+                  <span>
+                    {currentStock.limestone.days_cover < 15 
+                      ? "Critical - Order now" 
+                      : currentStock.limestone.days_cover < 20 
+                      ? "Low stock" 
+                      : "On target"}
+                  </span>
                 </div>
               </div>
 
@@ -231,19 +256,7 @@ export default function PlantPage() {
 
           <TabsContent value="home" className="space-y-4">
             <CurrentRequestsSummary plantId={plantId} />
-            
-            <Card className="border-2 border-primary/20">
-              <CardHeader>
-                <CardTitle className="text-primary">Upcoming Arrivals</CardTitle>
-                <CardDescription>Scheduled vessels/rakes to {plantData.name}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-6 text-muted-foreground">
-                  <p>No upcoming arrivals scheduled</p>
-                  <p className="text-sm mt-1">Arrivals will appear here after procurement assigns vessels</p>
-                </div>
-              </CardContent>
-            </Card>
+            <UpcomingArrivals plantId={plantId} plantName={plantData.name} />
           </TabsContent>
 
           <TabsContent value="stock-updates" className="space-y-4">

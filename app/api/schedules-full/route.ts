@@ -7,6 +7,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
 
     const status = searchParams.get("status")
+    const plantId = searchParams.get("plant_id")
 
     let query = supabase
       .from("schedules")
@@ -32,14 +33,28 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: false })
 
     if (status) {
-      query = query.eq("status", status)
+      // Support multiple statuses separated by comma
+      const statuses = status.split(",")
+      if (statuses.length > 1) {
+        query = query.in("status", statuses)
+      } else {
+        query = query.eq("status", status)
+      }
     }
 
     const { data, error } = await query
 
     if (error) throw error
 
-    return NextResponse.json({ data }, { status: 200 })
+    // Filter by plant if specified
+    let filteredData = data
+    if (plantId && data) {
+      filteredData = data.filter((schedule: any) => 
+        schedule.schedule_plants?.some((sp: any) => sp.plant_id === plantId)
+      )
+    }
+
+    return NextResponse.json({ data: filteredData }, { status: 200 })
   } catch (error: any) {
     console.error("[v0] Schedules GET error:", error)
     return NextResponse.json({ error: error.message || "Failed to fetch schedules" }, { status: 500 })

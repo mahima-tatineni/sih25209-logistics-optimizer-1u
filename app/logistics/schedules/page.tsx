@@ -10,7 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Filter, Ship, Calendar, Package } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Search, Filter, Ship, Calendar, Package, History } from "lucide-react"
 import type { ImportSchedule } from "@/lib/types"
 
 export default function SchedulesInboxPage() {
@@ -18,8 +19,10 @@ export default function SchedulesInboxPage() {
   const router = useRouter()
   const [schedules, setSchedules] = useState<ImportSchedule[]>([])
   const [filteredSchedules, setFilteredSchedules] = useState<ImportSchedule[]>([])
+  const [historySchedules, setHistorySchedules] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [activeTab, setActiveTab] = useState<"active" | "history">("active")
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -52,55 +55,63 @@ export default function SchedulesInboxPage() {
   const fetchSchedules = async () => {
     try {
       setLoading(true)
-      const response = await fetch("/api/schedules-full?status=draft,pending_optimization")
+      // Fetch from procurement schedules API (where mock data is stored)
+      const response = await fetch("/api/procurement/schedules")
       const data = await response.json()
 
-      const mappedSchedules: ImportSchedule[] = (data.data || []).map((schedule: any) => ({
-        id: schedule.id,
-        schedule_id: schedule.id.substring(0, 12),
-        material: schedule.material_type,
-        quantity_t: schedule.quantity,
-        vessel_id: schedule.id,
-        vessel_name: schedule.vessel_name,
-        load_port: schedule.supplier_port_id,
-        load_port_name: schedule.supplier_port_name || schedule.supplier_port_id,
-        sailing_date: schedule.laycan_start,
-        required_by_date: schedule.laycan_end,
-        target_plant: schedule.linked_requests?.[0]?.plant_id || "N/A",
-        target_plant_name: schedule.linked_requests?.[0]?.plant_name || "Multiple Plants",
-        status: schedule.optimized_port_id ? "Port Selected" : "Pending Port Selection",
-        selected_port: schedule.optimized_port_id,
-        selected_port_name: schedule.optimized_port_name,
-        created_at: schedule.created_at,
-        from_procurement_user: "Procurement Team",
-      }))
+      // Separate active schedules from history (returned/completed)
+      const activeSchedules = (data.data || []).filter(
+        (schedule: any) => schedule.status !== "RETURNED_TO_PROCUREMENT" && 
+                          schedule.status !== "RETURNED" &&
+                          schedule.status !== "DELIVERED" &&
+                          schedule.status !== "COMPLETED"
+      )
+
+      const processedSchedules = (data.data || []).filter(
+        (schedule: any) => schedule.status === "RETURNED_TO_PROCUREMENT" || 
+                          schedule.status === "RETURNED" ||
+                          schedule.status === "DELIVERED" ||
+                          schedule.status === "COMPLETED"
+      )
+
+      const mappedSchedules: ImportSchedule[] = activeSchedules.map((schedule: any) => {
+        // Map status to display status
+        let displayStatus: ImportSchedule["status"] = "Pending Port Selection"
+        if (schedule.status === "PORT_SELECTED") {
+          displayStatus = "Port Selected"
+        } else if (schedule.status === "IN_TRANSIT") {
+          displayStatus = "In Transit"
+        }
+
+        return {
+          id: schedule.id,
+          schedule_id: schedule.schedule_code,
+          material: schedule.material,
+          quantity_t: schedule.quantity_t,
+          vessel_id: schedule.vessel_id,
+          vessel_name: schedule.vessel_name,
+          load_port: schedule.load_port_code,
+          load_port_name: schedule.load_port_code,
+          sailing_date: schedule.sailing_date,
+          required_by_date: schedule.required_by_date,
+          target_plant: schedule.target_plant_code,
+          target_plant_name: schedule.target_plant_code,
+          status: displayStatus,
+          selected_port: schedule.selected_port,
+          selected_port_name: schedule.selected_port,
+          created_at: schedule.created_at,
+          from_procurement_user: "Procurement Team",
+        }
+      })
 
       setSchedules(mappedSchedules)
       setFilteredSchedules(mappedSchedules)
+      setHistorySchedules(processedSchedules)
     } catch (error) {
       console.error("[v0] Failed to fetch schedules:", error)
-      // Fallback to mock data if API fails
-      const mockSchedules: ImportSchedule[] = [
-        {
-          id: "IS001",
-          schedule_id: "SCH-2025-001",
-          material: "coking_coal",
-          quantity_t: 75000,
-          vessel_id: "V001",
-          vessel_name: "MV Pacific Glory",
-          load_port: "GLAD",
-          load_port_name: "Gladstone, Australia",
-          sailing_date: "2025-01-18",
-          required_by_date: "2025-02-15",
-          target_plant: "BSP",
-          target_plant_name: "Bhilai Steel Plant",
-          status: "Pending Port Selection",
-          created_at: "2025-01-10",
-          from_procurement_user: "Sanjay Gupta",
-        },
-      ]
-      setSchedules(mockSchedules)
-      setFilteredSchedules(mockSchedules)
+      setSchedules([])
+      setFilteredSchedules([])
+      setHistorySchedules([])
     } finally {
       setLoading(false)
     }
@@ -148,7 +159,21 @@ export default function SchedulesInboxPage() {
           </p>
         </div>
 
-        <Card className="p-6 mb-6">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "active" | "history")} className="space-y-6">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="active">
+              Active Schedules
+              <Badge className="ml-2" variant="secondary">{schedules.length}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="history">
+              <History className="h-4 w-4 mr-2" />
+              History
+              <Badge className="ml-2" variant="secondary">{historySchedules.length}</Badge>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="active">
+            <Card className="p-6 mb-6">
           <div className="flex flex-col md:flex-row gap-4 mb-6">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -261,30 +286,153 @@ export default function SchedulesInboxPage() {
           )}
         </Card>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="p-4">
-            <div className="text-2xl font-bold text-primary">{schedules.length}</div>
-            <div className="text-sm text-muted-foreground">Total Schedules</div>
-          </Card>
-          <Card className="p-4">
-            <div className="text-2xl font-bold text-yellow-600">
-              {schedules.filter((s) => s.status === "Pending Port Selection").length}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Card className="p-4">
+                <div className="text-2xl font-bold text-primary">{schedules.length}</div>
+                <div className="text-sm text-muted-foreground">Total Active</div>
+              </Card>
+              <Card className="p-4">
+                <div className="text-2xl font-bold text-yellow-600">
+                  {schedules.filter((s) => s.status === "Pending Port Selection").length}
+                </div>
+                <div className="text-sm text-muted-foreground">Pending Port Selection</div>
+              </Card>
+              <Card className="p-4">
+                <div className="text-2xl font-bold text-blue-600">
+                  {schedules.filter((s) => s.status === "Port Selected").length}
+                </div>
+                <div className="text-sm text-muted-foreground">Port Selected</div>
+              </Card>
+              <Card className="p-4">
+                <div className="text-2xl font-bold text-purple-600">
+                  {schedules.filter((s) => s.status === "In Transit").length}
+                </div>
+                <div className="text-sm text-muted-foreground">In Transit</div>
+              </Card>
             </div>
-            <div className="text-sm text-muted-foreground">Pending Port Selection</div>
-          </Card>
-          <Card className="p-4">
-            <div className="text-2xl font-bold text-blue-600">
-              {schedules.filter((s) => s.status === "Port Selected").length}
+          </TabsContent>
+
+          <TabsContent value="history">
+            <Card className="p-6">
+              <div className="mb-6">
+                <h2 className="text-xl font-semibold mb-2">Processed Schedules</h2>
+                <p className="text-sm text-muted-foreground">
+                  History of completed, delivered, and returned schedules
+                </p>
+              </div>
+
+              {loading ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+                  <p className="mt-4 text-muted-foreground">Loading history...</p>
+                </div>
+              ) : historySchedules.length === 0 ? (
+                <div className="text-center py-12">
+                  <History className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No History Yet</h3>
+                  <p className="text-muted-foreground">
+                    Processed schedules will appear here
+                  </p>
+                </div>
+              ) : (
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead>Schedule ID</TableHead>
+                        <TableHead>Material</TableHead>
+                        <TableHead>Quantity</TableHead>
+                        <TableHead>Vessel</TableHead>
+                        <TableHead>Target Plant</TableHead>
+                        <TableHead>Selected Port</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Notes</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {historySchedules.map((schedule) => (
+                        <TableRow key={schedule.id} className="hover:bg-muted/30">
+                          <TableCell className="font-mono font-medium text-primary">
+                            {schedule.schedule_code}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Package className="h-4 w-4 text-muted-foreground" />
+                              <span className="capitalize">{schedule.material?.replace("_", " ")}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>{schedule.quantity_t?.toLocaleString()} T</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Ship className="h-4 w-4 text-muted-foreground" />
+                              {schedule.vessel_name}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{schedule.target_plant_code}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            {schedule.selected_port ? (
+                              <Badge variant="secondary">{schedule.selected_port}</Badge>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">N/A</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge 
+                              variant={
+                                schedule.status === "DELIVERED" || schedule.status === "COMPLETED" 
+                                  ? "default" 
+                                  : "destructive"
+                              }
+                              className={
+                                schedule.status === "DELIVERED" || schedule.status === "COMPLETED"
+                                  ? "bg-green-600"
+                                  : "bg-red-600"
+                              }
+                            >
+                              {schedule.status?.replace("_", " ")}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {schedule.notes ? (
+                              <div className="max-w-xs truncate text-sm text-muted-foreground" title={schedule.notes}>
+                                {schedule.notes}
+                              </div>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </Card>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+              <Card className="p-4">
+                <div className="text-2xl font-bold text-green-600">
+                  {historySchedules.filter((s) => s.status === "DELIVERED" || s.status === "COMPLETED").length}
+                </div>
+                <div className="text-sm text-muted-foreground">Completed</div>
+              </Card>
+              <Card className="p-4">
+                <div className="text-2xl font-bold text-red-600">
+                  {historySchedules.filter((s) => s.status === "RETURNED_TO_PROCUREMENT" || s.status === "RETURNED").length}
+                </div>
+                <div className="text-sm text-muted-foreground">Returned to Procurement</div>
+              </Card>
+              <Card className="p-4">
+                <div className="text-2xl font-bold text-primary">
+                  {historySchedules.length}
+                </div>
+                <div className="text-sm text-muted-foreground">Total Processed</div>
+              </Card>
             </div>
-            <div className="text-sm text-muted-foreground">Port Selected</div>
-          </Card>
-          <Card className="p-4">
-            <div className="text-2xl font-bold text-purple-600">
-              {schedules.filter((s) => s.status === "In Transit").length}
-            </div>
-            <div className="text-sm text-muted-foreground">In Transit</div>
-          </Card>
-        </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   )

@@ -1,8 +1,19 @@
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
 
+// Declare global mock storage for demo purposes
+declare global {
+  var mockRequests: any[] | undefined
+}
+
 export async function GET(request: NextRequest) {
   try {
+    // Return mock requests if they exist (for demo without database)
+    if (global.mockRequests && global.mockRequests.length > 0) {
+      console.log("[v0] Returning mock requests:", global.mockRequests.length)
+      return NextResponse.json({ data: global.mockRequests }, { status: 200 })
+    }
+
     const supabase = await createClient()
     const { searchParams } = new URL(request.url)
 
@@ -14,7 +25,7 @@ export async function GET(request: NextRequest) {
       .from("stock_requests")
       .select(`
         *,
-        plants!plant_id (id, code, name)
+        plants (id, code, name)
       `)
       .order("created_at", { ascending: false })
 
