@@ -92,3 +92,6 @@ logs
 tmp/
 temp/
 *.tmp
+
+# Submodule folder
+sih-25209/
