@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth"
 import { AlertCircle, CheckCircle, Info, XCircle, X } from "lucide-react"
 
 export function NotificationCenter() {
-  const { notifications, removeNotification } = useNotifications()
+  const { notifications, clearNotification } = useNotifications()
   const { isAuthenticated } = useAuth()
 
   // Only show notifications when user is logged in
@@ -52,7 +52,7 @@ export function NotificationCenter() {
             <p className="text-sm text-gray-700 mt-1">{notification.message}</p>
           </div>
           <button
-            onClick={() => removeNotification(notification.id)}
+            onClick={() => clearNotification(notification.id)}
             className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
           >
             <X className="w-5 h-5" />

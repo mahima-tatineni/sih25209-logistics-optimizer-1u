@@ -18,7 +18,7 @@ export default function OptimizationPage() {
       .then((res) => res.json())
       .then((data) => {
         setShipments(data)
-        setSelected(data.filter((s: Shipment) => s.status === 'planned').map((s: Shipment) => s.id))
+        setSelected(data.filter((s: Shipment) => s.status === 'Draft' || s.status === 'Created').map((s: Shipment) => s.id))
       })
   }, [])
 
@@ -99,4 +99,42 @@ export default function OptimizationPage() {
                   <div key={s.shipment_id} className="p-3 bg-muted rounded-lg">
                     <div className="flex justify-between items-start mb-2">
                       <p className="font-semibold text-sm">{s.shipment_id}</p>
-                \
+                      <p className="text-xs text-muted-foreground">
+                        ETA: {s.eta || 'TBD'}
+                      </p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {s.assigned_port || 'Port TBD'} • {s.discharge_days || 0} days
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Cost Summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Optimized Shipments</p>
+                  <p className="text-2xl font-bold text-primary">
+                    {result.shipments?.length || 0}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Status</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    Optimized
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
+    </div>
+  )
+}
